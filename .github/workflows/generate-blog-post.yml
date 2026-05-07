@@ -1,0 +1,110 @@
+name: Ultra Content Machine — Daily Blog Generation
+
+on:
+  schedule:
+    # 9:00 AM Israel time (UTC+3) = 6:00 UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      manual_trigger:
+        description: 'Trigger manual generation'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  generate-post:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.verify.outputs.changed }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install -g tsx
+
+      - name: Setup environment
+        run: |
+          echo "FAL_KEY=${{ secrets.FAL_KEY }}" >> .env.local
+          echo "OLLAMA_API_KEY=${{ secrets.OLLAMA_API_KEY }}" >> .env.local
+          echo "OLLAMA_MODEL=${{ secrets.OLLAMA_MODEL || 'kimi-k2.5' }}" >> .env.local
+          echo "CLOUDFLARE_API_TOKEN=${{ secrets.CLOUDFLARE_API_TOKEN }}" >> .env.local
+          echo "CLOUDFLARE_ACCOUNT_ID=${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" >> .env.local
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> .env.local
+
+      - name: Generate ultra blog post
+        run: |
+          echo "Starting Ultra Content Machine..."
+          npx tsx scripts/generate-content.ts
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+      - name: Check for new content
+        id: verify
+        run: |
+          if [ -n "$(git status --porcelain content/ public/images/)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "New ultra-guide generated!"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No new content today"
+          fi
+
+      - name: Commit and push
+        if: steps.verify.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "Ultra Content Bot"
+          git add content/ public/images/generated/
+          git commit -m "Ultra Content: $(date '+%Y-%m-%d') auto-generated guide"
+          git push
+
+  build-and-deploy:
+    needs: generate-post
+    runs-on: ubuntu-latest
+    if: needs.generate-post.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

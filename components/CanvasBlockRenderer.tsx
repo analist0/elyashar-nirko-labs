@@ -48,9 +48,8 @@ function detectLanguage(className: string): string {
 }
 
 function slugify(text: string): string {
-  const tmp = document.createElement('div')
-  tmp.innerHTML = text
-  const plain = tmp.textContent || tmp.innerText || ''
+  // Strip HTML tags for plain text
+  const plain = text.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
   return plain
     .trim()
     .toLowerCase()
@@ -61,18 +60,16 @@ function slugify(text: string): string {
 }
 
 function parseHtmlToBlocks(html: string): Block[] {
-  if (typeof window === 'undefined') return []
-
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(html, 'text/html')
   const blocks: Block[] = []
   const headingSlugs: string[] = []
+  let index = 0
 
-  const children = Array.from(doc.body.children)
+  const tagRegex = /<(\/?)([a-zA-Z0-9]+)([^>]*)>/g
+  const textContentRegex = />([^<]*)/g
 
-  children.forEach((el, index) => {
-    const tag = el.tagName.toLowerCase()
-    const baseId = `block-${index}`
+  // Simple server-safe parser using regex
+  const processChunk = (tag: string, attrs: string, innerHtml: string) => {
+    const baseId = `block-${index++}`
 
     switch (tag) {
       case 'h1':
@@ -81,7 +78,7 @@ function parseHtmlToBlocks(html: string): Block[] {
       case 'h4':
       case 'h5':
       case 'h6': {
-        let headingSlug = slugify(el.innerHTML)
+        let headingSlug = slugify(innerHtml)
         if (!headingSlug) headingSlug = `heading-${index}`
         let uniqueSlug = headingSlug
         let suffix = 1
@@ -93,77 +90,46 @@ function parseHtmlToBlocks(html: string): Block[] {
         blocks.push({
           type: 'heading',
           id: baseId,
-          content: el.innerHTML,
+          content: innerHtml,
           meta: { level: parseInt(tag[1], 10), slug: uniqueSlug },
         })
         break
       }
 
-      case 'p': {
-        const imgChild = el.querySelector('img')
-        if (imgChild) {
-          blocks.push({
-            type: 'image',
-            id: baseId,
-            content: '',
-            meta: {
-              src: imgChild.getAttribute('src') || '',
-              alt: imgChild.getAttribute('alt') || '',
-            },
-          })
-        } else {
-          blocks.push({ type: 'paragraph', id: baseId, content: el.innerHTML })
-        }
+      case 'img': {
+        const srcMatch = attrs.match(/src=["']([^"']+)["']/)
+        const altMatch = attrs.match(/alt=["']([^"']+)["']/)
+        blocks.push({
+          type: 'image',
+          id: baseId,
+          content: '',
+          meta: {
+            src: srcMatch ? srcMatch[1] : '',
+            alt: altMatch ? altMatch[1] : '',
+          },
+        })
         break
       }
 
       case 'pre': {
-        const codeEl = el.querySelector('code')
-        const lang = codeEl ? detectLanguage(codeEl.className) : ''
+        const codeMatch = innerHtml.match(/<code[^>]*class=["']([^"']*)["'][^>]*>([\s\S]*?)<\/code>/)
+        const lang = codeMatch ? detectLanguage(codeMatch[1]) : ''
+        const codeContent = codeMatch ? codeMatch[2] : innerHtml
         blocks.push({
           type: 'code',
           id: baseId,
-          content: codeEl ? codeEl.innerHTML : el.innerHTML,
+          content: codeContent,
           meta: { language: lang },
         })
         break
       }
 
-      case 'img': {
-        blocks.push({
-          type: 'image',
-          id: baseId,
-          content: '',
-          meta: {
-            src: el.getAttribute('src') || '',
-            alt: el.getAttribute('alt') || '',
-          },
-        })
-        break
-      }
-
-      case 'figure': {
-        const figImg = el.querySelector('img')
-        const figcaption = el.querySelector('figcaption')
-        blocks.push({
-          type: 'image',
-          id: baseId,
-          content: '',
-          meta: {
-            src: figImg?.getAttribute('src') || '',
-            alt: figImg?.getAttribute('alt') || '',
-            caption: figcaption?.innerHTML || '',
-          },
-        })
-        break
-      }
-
       case 'blockquote':
-        blocks.push({ type: 'quote', id: baseId, content: el.innerHTML })
+        blocks.push({ type: 'quote', id: baseId, content: innerHtml })
         break
 
       case 'table':
-        blocks.push({ type: 'table', id: baseId, content: el.outerHTML })
+        blocks.push({ type: 'table', id: baseId, content: `<table${attrs}>${innerHtml}</table>` })
         break
 
       case 'hr':
@@ -174,7 +140,7 @@ function parseHtmlToBlocks(html: string): Block[] {
         blocks.push({
           type: 'list',
           id: baseId,
-          content: el.outerHTML,
+          content: `<ul${attrs}>${innerHtml}</ul>`,
           meta: { ordered: false },
         })
         break
@@ -183,15 +149,186 @@ function parseHtmlToBlocks(html: string): Block[] {
         blocks.push({
           type: 'list',
           id: baseId,
-          content: el.outerHTML,
+          content: `<ol${attrs}>${innerHtml}</ol>`,
           meta: { ordered: true },
         })
         break
 
-      default:
-        blocks.push({ type: 'paragraph', id: baseId, content: el.innerHTML })
+      case 'p':
+      default: {
+        // Check if paragraph contains a direct img child
+        const imgMatch = innerHtml.match(/<img[^>]*src=["']([^"']+)["'][^>]*>/)
+        if (imgMatch) {
+          const altMatch = innerHtml.match(/alt=["']([^"']+)["']/)
+          blocks.push({
+            type: 'image',
+            id: baseId,
+            content: '',
+            meta: {
+              src: imgMatch[1],
+              alt: altMatch ? altMatch[1] : '',
+            },
+          })
+        } else {
+          blocks.push({ type: 'paragraph', id: baseId, content: innerHtml })
+        }
+      }
     }
-  })
+  }
+
+  if (typeof window === 'undefined') {
+    // Server-side: simple regex parser
+    const wrappedHtml = `<div>${html}</div>`
+    const divMatch = wrappedHtml.match(/<div>([\s\S]*)<\/div>/)
+    if (!divMatch) return blocks
+
+    const bodyContent = divMatch[1]
+    // Split by top-level tags
+    const topLevelRegex = /<([a-zA-Z0-9]+)([^>]*)>([\s\S]*?)<\/\1>/g
+    let match
+    while ((match = topLevelRegex.exec(bodyContent)) !== null) {
+      const tag = match[1]
+      const attrs = match[2]
+      const inner = match[3]
+      processChunk(tag, attrs, inner)
+    }
+
+    // Handle self-closing tags
+    const selfClosingRegex = /<(hr|img)([^>]*)\/?>/g
+    while ((match = selfClosingRegex.exec(bodyContent)) !== null) {
+      const tag = match[1]
+      const attrs = match[2]
+      processChunk(tag, attrs, '')
+    }
+  } else {
+    // Client-side: use DOMParser for accuracy
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+    const children = Array.from(doc.body.children)
+
+    children.forEach((el) => {
+      const tag = el.tagName.toLowerCase()
+      const baseId = `block-${index++}`
+
+      switch (tag) {
+        case 'h1':
+        case 'h2':
+        case 'h3':
+        case 'h4':
+        case 'h5':
+        case 'h6': {
+          let headingSlug = slugify(el.innerHTML)
+          if (!headingSlug) headingSlug = `heading-${index}`
+          let uniqueSlug = headingSlug
+          let suffix = 1
+          while (headingSlugs.includes(uniqueSlug)) {
+            uniqueSlug = `${headingSlug}-${suffix}`
+            suffix++
+          }
+          headingSlugs.push(uniqueSlug)
+          blocks.push({
+            type: 'heading',
+            id: baseId,
+            content: el.innerHTML,
+            meta: { level: parseInt(tag[1], 10), slug: uniqueSlug },
+          })
+          break
+        }
+
+        case 'p': {
+          const imgChild = el.querySelector('img')
+          if (imgChild) {
+            blocks.push({
+              type: 'image',
+              id: baseId,
+              content: '',
+              meta: {
+                src: imgChild.getAttribute('src') || '',
+                alt: imgChild.getAttribute('alt') || '',
+              },
+            })
+          } else {
+            blocks.push({ type: 'paragraph', id: baseId, content: el.innerHTML })
+          }
+          break
+        }
+
+        case 'pre': {
+          const codeEl = el.querySelector('code')
+          const lang = codeEl ? detectLanguage(codeEl.className) : ''
+          blocks.push({
+            type: 'code',
+            id: baseId,
+            content: codeEl ? codeEl.innerHTML : el.innerHTML,
+            meta: { language: lang },
+          })
+          break
+        }
+
+        case 'img': {
+          blocks.push({
+            type: 'image',
+            id: baseId,
+            content: '',
+            meta: {
+              src: el.getAttribute('src') || '',
+              alt: el.getAttribute('alt') || '',
+            },
+          })
+          break
+        }
+
+        case 'figure': {
+          const figImg = el.querySelector('img')
+          const figcaption = el.querySelector('figcaption')
+          blocks.push({
+            type: 'image',
+            id: baseId,
+            content: '',
+            meta: {
+              src: figImg?.getAttribute('src') || '',
+              alt: figImg?.getAttribute('alt') || '',
+              caption: figcaption?.innerHTML || '',
+            },
+          })
+          break
+        }
+
+        case 'blockquote':
+          blocks.push({ type: 'quote', id: baseId, content: el.innerHTML })
+          break
+
+        case 'table':
+          blocks.push({ type: 'table', id: baseId, content: el.outerHTML })
+          break
+
+        case 'hr':
+          blocks.push({ type: 'divider', id: baseId, content: '' })
+          break
+
+        case 'ul':
+          blocks.push({
+            type: 'list',
+            id: baseId,
+            content: el.outerHTML,
+            meta: { ordered: false },
+          })
+          break
+
+        case 'ol':
+          blocks.push({
+            type: 'list',
+            id: baseId,
+            content: el.outerHTML,
+            meta: { ordered: true },
+          })
+          break
+
+        default:
+          blocks.push({ type: 'paragraph', id: baseId, content: el.innerHTML })
+      }
+    })
+  }
 
   return blocks
 }
