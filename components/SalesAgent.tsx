@@ -198,6 +198,9 @@ export default function SalesAgent() {
     try {
       if (!AGENT_URL) throw new Error('Agent URL not configured')
 
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 20000)
+
       const res = await fetch(AGENT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -207,7 +210,9 @@ export default function SalesAgent() {
             .map(({ role, content }) => ({ role, content })),
           sessionId,
         }),
+        signal: controller.signal,
       })
+      clearTimeout(timeout)
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
@@ -222,12 +227,15 @@ export default function SalesAgent() {
         },
       ])
       if (data.handoff) setHandedOff(true)
-    } catch {
+    } catch (err: any) {
+      const isTimeout = err?.name === 'AbortError'
       setMessages(prev => [
         ...prev,
         {
           role: 'error',
-          content: 'מצטערים, יש בעיה טכנית כרגע. ניתן לנסות שוב.',
+          content: isTimeout
+            ? 'ה-AI עובד קשה... לחץ כאן לנסות שוב או התקשר ישירות: 058-442-3342'
+            : 'מצטערים, יש בעיה טכנית כרגע. ניתן לנסות שוב.',
           timestamp: formatTime(new Date()),
           id: generateSessionId(),
         },

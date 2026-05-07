@@ -5,6 +5,17 @@ import { useEffect, useState, useRef } from 'react'
 import { Sparkles, Code2, Brain, Cpu, ChevronDown, Zap } from 'lucide-react'
 import { useTheme } from '../src/context/ThemeContext'
 
+function notifyLead(source: string) {
+  const apiBase = process.env.NEXT_PUBLIC_AGENT_URL?.replace('/chat', '') || 'http://localhost:3004'
+  fetch(`${apiBase}/lead`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source }),
+  }).catch(() => {
+    // silently fail
+  })
+}
+
 const roles = [
   'מפתח AI',
   'Full-Stack Developer',
@@ -307,6 +318,7 @@ export default function HeroSection() {
             href="tel:0584423342"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            onClick={() => notifyLead('hero-phone')}
             className="px-8 py-4 glass rounded-full font-bold text-gray-800 dark:text-white hover:bg-white/10 transition-colors"
           >
             058-442-3342
@@ -320,7 +332,11 @@ export default function HeroSection() {
           transition={{ delay: 0.6 }}
           className="mt-6 text-gray-500"
         >
-          <a href="mailto:Jelyashar@gmail.com" className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">
+          <a
+            href="mailto:Jelyashar@gmail.com"
+            onClick={() => notifyLead('hero-email')}
+            className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+          >
             Jelyashar@gmail.com
           </a>
         </motion.p>

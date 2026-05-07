@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X, Brain, Cpu } from 'lucide-react'
+import Link from 'next/link'
 import ThemeToggle from './ThemeToggle'
 
 const navItems = [
@@ -40,37 +41,36 @@ export default function Navigation() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             {/* Logo */}
-            <motion.a
-              href="#hero"
-              className="flex items-center gap-2"
-              whileHover={{ scale: 1.05 }}
-            >
-              <div className="relative">
-                <Brain className="w-8 h-8 text-purple-500" />
-                <Cpu className="w-4 h-4 text-cyan-400 absolute -bottom-1 -right-1" />
-              </div>
-              <span className="text-xl font-bold gradient-text">JE</span>
-            </motion.a>
+            <Link href="/#hero" className="flex items-center gap-2">
+              <motion.div whileHover={{ scale: 1.05 }}>
+                <div className="relative">
+                  <Brain className="w-8 h-8 text-purple-500" />
+                  <Cpu className="w-4 h-4 text-cyan-400 absolute -bottom-1 -right-1" />
+                </div>
+                <span className="text-xl font-bold gradient-text">JE</span>
+              </motion.div>
+            </Link>
 
             {/* Desktop Nav */}
             <div className="hidden md:flex items-center gap-6">
               {navItems.map((item) => (
-                <motion.a
+                <Link
                   key={item.name}
                   href={item.href}
                   className="text-gray-300 hover:text-white transition-colors relative group"
-                  whileHover={{ scale: 1.1 }}
                 >
-                  {item.name}
+                  <motion.span whileHover={{ scale: 1.1 }} className="inline-block">
+                    {item.name}
+                  </motion.span>
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-purple-500 to-cyan-500 group-hover:w-full transition-all duration-300" />
-                </motion.a>
+                </Link>
               ))}
-              
+
               {/* Theme Toggle */}
               <div className="mr-4">
                 <ThemeToggle />
               </div>
-              
+
               <motion.a
                 href="tel:0584423342"
                 className="btn-primary px-6 py-2 rounded-full text-white font-medium"
@@ -106,17 +106,20 @@ export default function Navigation() {
           >
             <div className="flex flex-col items-center gap-6 p-8">
               {navItems.map((item, index) => (
-                <motion.a
+                <Link
                   key={item.name}
                   href={item.href}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="text-2xl font-medium text-white"
                   onClick={() => setIsOpen(false)}
                 >
-                  {item.name}
-                </motion.a>
+                  <motion.span
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="text-2xl font-medium text-white inline-block"
+                  >
+                    {item.name}
+                  </motion.span>
+                </Link>
               ))}
               <motion.a
                 href="tel:0584423342"

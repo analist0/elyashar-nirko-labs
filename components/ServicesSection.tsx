@@ -13,6 +13,17 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 
+function notifyLead(source: string) {
+  const apiBase = process.env.NEXT_PUBLIC_AGENT_URL?.replace('/chat', '') || 'http://localhost:3004'
+  fetch(`${apiBase}/lead`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source }),
+  }).catch(() => {
+    // silently fail
+  })
+}
+
 interface Service {
   icon: React.ElementType
   title: string
@@ -151,6 +162,7 @@ function ServiceCard({ service, index }: { service: Service; index: number }) {
         <motion.a
           href="#contact"
           whileHover={{ x: -5 }}
+          onClick={() => notifyLead(`service-${service.title}`)}
           className="inline-flex items-center gap-2 text-purple-600 dark:text-cyan-400 text-sm font-medium group/link"
         >
           בוא נדבר
@@ -212,6 +224,7 @@ export default function ServicesSection() {
               href="tel:0584423342"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => notifyLead('services-phone-cta')}
               className="px-6 py-3 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-full text-white font-medium whitespace-nowrap"
             >
               התקשר עכשיו: 058-442-3342

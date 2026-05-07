@@ -23,27 +23,25 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || ''
 
 const OLLAMA_URL = 'https://ollama.com/api/chat'
 
-let SYSTEM_PROMPT = `אתה עוזר מכירות ושיווק של יוסף אלישר — מפתח Full-Stack ו-AI ישראלי מנוסה.
+let SYSTEM_PROMPT = `אתה יוסף אלישר — מפתח Full-Stack ו-AI ישראלי מנוסה. אתה מדבר ישירות עם לקוחות פוטנציאליים בצ'אט.
 
-שירותי יוסף ומחירים:
-• אפליקציות AI וצ'אט-בוטים חכמים: ₪3,000–₪15,000
-• אתרי Portfolio ו-Landing Pages מרשימים: ₪1,500–₪5,000
-• פיתוח Full-Stack מלא (Next.js, React, TypeScript): ₪5,000–₪25,000
-• אוטומציה, SEO ו-API integrations: ₪2,000–₪8,000
-• ייעוץ טכנולוגי אישי: ₪350/שעה
+שירותים ומחירים:
+• אפליקציות AI וצ'אטבוטים: ₪3,000–₪15,000
+• אתרי תדמית ו-Landing Pages: ₪1,500–₪5,000
+• פיתוח Full-Stack (Next.js, React, TypeScript): ₪5,000–₪25,000
+• אוטומציה, SEO ואינטגרציות: ₪2,000–₪8,000
+• ייעוץ טכנולוגי: ₪350/שעה
 • מערכות AI מתקדמות (LLM, RAG, Agents): ₪8,000–₪30,000
 
-טכנולוגיות: Next.js 14, React 18, TypeScript, Python, Node.js, Cloudflare Workers, Docker, Kubernetes, AI/LLM integrations, Telegram bots, n8n automation.
-
 כללי התנהגות:
-- דבר בעברית חברותית, חמה ומקצועית
-- שאל שאלות ממוקדות כדי להבין את הצורך לפני הצגת מחירים
-- תן ערך אמיתי — טיפ, הסבר, רעיון — בכל תשובה
-- הסבר מה כולל כל שירות ולמה שווה את המחיר
-- כשלקוח מביע עניין רציני — בקש שם ואמצעי קשר (טלפון/אימייל/טלגרם)
-- אחרי שקיבלת פרטי קשר — כתוב HANDOFF בסוף (הקוד ינקה את המילה)
-- אל תכתוב HANDOFF לפני שיש פרטי קשר ממשיים
-- תשובות קצרות וממוקדות — עד 3 פסקאות`
+1. פתח כל שיחה בברכה אישית ושאלה פתוחה: "מה הפרויקט שאתה חושב עליו?"
+2. דבר בעברית חברותית וחמה — כאילו אתה בפגישת קפה
+3. תן ערך מיידי בכל תשובה — טיפ, הסבר קצר, או רעיון — לפני שאתה מדבר על מחירים
+4. כשהלקוח מתעניין בשירות — הסבר מה כלול במחיר ולמה זה שווה
+5. בקש פרטי קשר רק כשיש עניין אמיתי ורצון ברור לשתף פעולה
+6. אם הלקוח נותן שם + טלפון/אימייל — סיים את התשובה עם המילה HANDOFF (בלי סימני קריאה, רק המילה)
+7. אל תכתוב HANDOFF אם אין פרטי קשר אמיתיים
+8. תשובות קצרות וקולעות — 2-3 משפטים מרבה`
 
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
@@ -212,6 +210,9 @@ function writeComments(slug, comments) {
 
 /* ─── Ollama ─── */
 async function callOllama(messages) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 25000) // 25s timeout
+
   const body = JSON.stringify({
     model: OLLAMA_MODEL,
     messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages.slice(-12)],
@@ -219,21 +220,31 @@ async function callOllama(messages) {
     options: { temperature: 0.7 },
   })
 
-  const res = await fetch(OLLAMA_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${OLLAMA_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body,
-  })
+  try {
+    const res = await fetch(OLLAMA_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OLLAMA_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body,
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Ollama error ${res.status}: ${err}`)
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(`Ollama error ${res.status}: ${err}`)
+    }
+    const data = await res.json()
+    return data.message?.content || ''
+  } catch (err) {
+    clearTimeout(timeout)
+    if (err.name === 'AbortError') {
+      throw new Error('Ollama timeout — model took too long to respond')
+    }
+    throw err
   }
-  const data = await res.json()
-  return data.message?.content || ''
 }
 
 /* ─── Telegram ─── */
@@ -452,9 +463,35 @@ const server = http.createServer((req, res) => {
     return serveJson(res, 200, {
       status: 'ok',
       message: 'Sales Agent API — use POST with JSON body { messages: [{role,content}], sessionId }',
-      endpoints: ['/chat', '/messages/:sessionId', '/webhook', '/health', '/admin/*', '/comments/:slug'],
+      endpoints: ['/chat', '/messages/:sessionId', '/webhook', '/health', '/admin/*', '/comments/:slug', '/lead'],
       model: OLLAMA_MODEL,
       sessions: sessions.size,
+    })
+  }
+
+  // Lead capture endpoint — any CTA button can hit this to notify Telegram
+  if (pathname === '/lead' && req.method === 'POST') {
+    return parseBody(req, async (err, body) => {
+      if (err) return serveJson(res, 400, { error: 'Invalid JSON' })
+
+      const { source = 'website', name = '', email = '', phone = '', message = '' } = body || {}
+      const ip = getClientIp(req)
+
+      const telegramMsg = `🔔 <b>ליד חדש מהאתר!</b>
+
+📍 מקור: ${escapeHtml(source)}
+👤 שם: ${escapeHtml(name) || 'לא צוין'}
+📧 אימייל: ${escapeHtml(email) || 'לא צוין'}
+📱 טלפון: ${escapeHtml(phone) || 'לא צוין'}
+💬 הודעה: ${escapeHtml(message) || 'אין'}
+🌐 IP: ${ip}
+
+📱 <i>השב ללקוח בהקדם</i>`
+
+      await sendTelegram(telegramMsg)
+      console.log('📱 Lead notification sent from:', source)
+
+      return serveJson(res, 200, { ok: true, message: 'Lead captured' })
     })
   }
 

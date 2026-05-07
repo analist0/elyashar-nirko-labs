@@ -68,13 +68,27 @@ export default function ContactSection() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    
+
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_AGENT_URL?.replace('/chat', '') || 'http://localhost:3004'}/lead`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'contact-form',
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          message: formData.message,
+        }),
+      })
+    } catch {
+      // silently fail — user experience is priority
+    }
+
     setIsSubmitting(false)
     setSubmitted(true)
     setFormData({ name: '', email: '', phone: '', message: '' })
-    
+
     setTimeout(() => setSubmitted(false), 5000)
   }
 
