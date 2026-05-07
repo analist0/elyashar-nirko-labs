@@ -11,6 +11,30 @@
     <changefreq>daily</changefreq>
   </url>
   <url>
+    <loc>https://elyasharlabs.com/blog/claw-code-1778175403657/</loc>
+    <lastmod>2026-05-07</lastmod>
+    <priority>0.8</priority>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
+    <loc>https://elyasharlabs.com/blog/tensorflow-1778175180807/</loc>
+    <lastmod>2026-05-07</lastmod>
+    <priority>0.8</priority>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
+    <loc>https://elyasharlabs.com/blog/the-book-of-secret-knowledge-1778174967583/</loc>
+    <lastmod>2026-05-07</lastmod>
+    <priority>0.8</priority>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
+    <loc>https://elyasharlabs.com/blog/openclaw-1778174319992/</loc>
+    <lastmod>2026-05-07</lastmod>
+    <priority>0.8</priority>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
     <loc>https://elyasharlabs.com/blog/flutter-1778152111191/</loc>
     <lastmod>2026-05-07</lastmod>
     <priority>0.8</priority>
