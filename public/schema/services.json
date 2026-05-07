@@ -1,0 +1,123 @@
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "provider": {
+      "@type": "LocalBusiness",
+      "name": "ElyasharLabs",
+      "url": "https://elyasharlabs.com"
+    },
+    "areaServed": {
+      "@type": "Place",
+      "name": "Ramat Gan, Israel"
+    },
+    "name": "אפליקציות AI",
+    "description": "בניית אפליקציות מבוססות בינה מלאכותית — צ׳אטבוטים, עיבוד תמונה, ניתוח טקסט, ומערכות המלצה חכמות.",
+    "offers": {
+      "@type": "Offer",
+      "priceRange": "₪3,000–₪15,000",
+      "priceCurrency": "ILS"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "provider": {
+      "@type": "LocalBusiness",
+      "name": "ElyasharLabs",
+      "url": "https://elyasharlabs.com"
+    },
+    "areaServed": {
+      "@type": "Place",
+      "name": "Ramat Gan, Israel"
+    },
+    "name": "אתרי תדמית",
+    "description": "עיצוב ופיתוח אתרי תדמית מרשימים עם אנימציות מתקדמות, SEO מובנה וחווית משתמש מעולה.",
+    "offers": {
+      "@type": "Offer",
+      "priceRange": "₪1,500–₪5,000",
+      "priceCurrency": "ILS"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "provider": {
+      "@type": "LocalBusiness",
+      "name": "ElyasharLabs",
+      "url": "https://elyasharlabs.com"
+    },
+    "areaServed": {
+      "@type": "Place",
+      "name": "Ramat Gan, Israel"
+    },
+    "name": "פיתוח Full-Stack",
+    "description": "מערכות web מורכבות מקצה לקצה — מבסיס הנתונים דרך ה-API ועד לממשק המשתמש.",
+    "offers": {
+      "@type": "Offer",
+      "priceRange": "₪5,000–₪25,000",
+      "priceCurrency": "ILS"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "provider": {
+      "@type": "LocalBusiness",
+      "name": "ElyasharLabs",
+      "url": "https://elyasharlabs.com"
+    },
+    "areaServed": {
+      "@type": "Place",
+      "name": "Ramat Gan, Israel"
+    },
+    "name": "אוטומציה",
+    "description": "אוטומציה של תהליכים עסקיים — סקריפטים, בוטים, זרימות עבודה וחיבור בין מערכות.",
+    "offers": {
+      "@type": "Offer",
+      "priceRange": "₪2,000–₪8,000",
+      "priceCurrency": "ILS"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "provider": {
+      "@type": "LocalBusiness",
+      "name": "ElyasharLabs",
+      "url": "https://elyasharlabs.com"
+    },
+    "areaServed": {
+      "@type": "Place",
+      "name": "Ramat Gan, Israel"
+    },
+    "name": "ייעוץ טכנולוגי",
+    "description": "ייעוץ אישי לפרויקטים טכנולוגיים — בחירת ארכיטקטורה, טכנולוגיות, ואסטרטגיית פיתוח.",
+    "offers": {
+      "@type": "Offer",
+      "price": "350",
+      "priceUnitText": "לשעה",
+      "priceCurrency": "ILS"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "provider": {
+      "@type": "LocalBusiness",
+      "name": "ElyasharLabs",
+      "url": "https://elyasharlabs.com"
+    },
+    "areaServed": {
+      "@type": "Place",
+      "name": "Ramat Gan, Israel"
+    },
+    "name": "מערכות AI",
+    "description": "מערכות AI מתקדמות — אימון מודלים, אינטגרציה עם LLMs, ופתרונות בינה מלאכותית מותאמים אישית.",
+    "offers": {
+      "@type": "Offer",
+      "priceRange": "₪8,000–₪30,000",
+      "priceCurrency": "ILS"
+    }
+  }
+]

@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+# package-lock.json should be tracked
+
+# Build outputs
+dist/
+.next/
+out/
+
+# Environment variables
+.env.local
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+*.swp
+*.swo
+*~
+
+# API env files
+api/.env
+

@@ -1,0 +1,70 @@
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "ElyasharLabs",
+  "alternateName": "יוסף אלישר - ElyasharLabs",
+  "description": "משרת פיתוח AI ו-Full-Stack של יוסף אלישר. בניית אפליקציות AI, אתרי תדמית, מערכות Full-Stack, אוטומציה וייעוץ טכנולוגי ברמת גן ובאזור גוש דן.",
+  "url": "https://elyasharlabs.com",
+  "telephone": "+972-58-442-3342",
+  "email": "joseph@elyasharlabs.com",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "Ramat Gan",
+    "addressRegion": "Tel Aviv District",
+    "addressCountry": "IL"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": "32.0684",
+    "longitude": "34.8248"
+  },
+  "areaServed": {
+    "@type": "Place",
+    "name": "Gush Dan",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Gush Dan",
+      "addressCountry": "IL"
+    }
+  },
+  "serviceType": [
+    "AI Development",
+    "Full-Stack Development",
+    "Web Development",
+    "Automation",
+    "Technical Consulting"
+  ],
+  "priceRange": "₪₪₪",
+  "currenciesAccepted": "ILS",
+  "paymentAccepted": "Cash, Credit Card, Bank Transfer, PayPal",
+  "openingHoursSpecification": [
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday"
+      ],
+      "opens": "09:00",
+      "closes": "19:00"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": "Friday",
+      "opens": "09:00",
+      "closes": "14:00"
+    }
+  ],
+  "founder": {
+    "@type": "Person",
+    "name": "יוסף אלישר",
+    "jobTitle": "Full-Stack & AI Developer",
+    "url": "https://elyasharlabs.com"
+  },
+  "sameAs": [
+    "https://github.com/josephelyashar",
+    "https://www.linkedin.com/in/josephelyashar"
+  ]
+}
