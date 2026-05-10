@@ -2,6 +2,7 @@
 /**
  * Image Generation Pipeline — fal.ai FLUX (primary) + Cloudflare Workers AI (fallback)
  * Generates professional images for blog posts with enterprise-grade quality.
+ * Version 2.0 — Enhanced with retry logic, model fallback, and comprehensive error handling.
  */
 
 import * as fs from 'fs'
@@ -29,10 +30,11 @@ const STYLE_ENHANCEMENTS: Record<string, string> = {
   colorful: 'vibrant gradient, dynamic composition, bold colors, energetic and eye-catching, no text',
   dark: 'dark theme, neon cyan and purple, cyberpunk aesthetic, high contrast, futuristic, no text',
   enterprise: 'dark navy background, subtle grid pattern, professional tech aesthetic, clean lines, no text, premium feel',
+  cinematic: 'cinematic lighting, premium modern design, ultra detailed, realistic, clean composition, no text, suitable for tech startup magazine',
 }
 
-function buildPrompt(base: string, style: string = 'modern'): string {
-  return `${base}, ${STYLE_ENHANCEMENTS[style] || STYLE_ENHANCEMENTS.modern}, high quality 4K illustration`
+function buildPrompt(base: string, style: string = 'cinematic'): string {
+  return `${base}, ${STYLE_ENHANCEMENTS[style] || STYLE_ENHANCEMENTS.cinematic}, high quality 4K illustration`
 }
 
 /* ─── Legacy Pollinations Fallback ─── */
@@ -42,6 +44,13 @@ function pollinationsFallback(title: string, category: string, keywords: string[
     `dark gradient background purple to cyan, abstract code elements, minimalist digital art`
   )
   return `https://image.pollinations.ai/prompt/${prompt}?width=1200&height=630&nologo=true&seed=${Date.now()}`
+}
+
+function pollinationsSectionFallback(basePrompt: string): string {
+  const fallbackPrompt = encodeURIComponent(
+    `${basePrompt}, dark gradient background purple to cyan, minimalist digital art`
+  )
+  return `https://image.pollinations.ai/prompt/${fallbackPrompt}?width=1024&height=576&nologo=true&seed=${Date.now()}`
 }
 
 /* ─── Per-Section Prompts (Enterprise Grade) ─── */
@@ -76,12 +85,12 @@ const SECTION_PROMPTS: Record<string, (title: string, topic: string) => string> 
     `Success checkmark and rocket launch, achievement celebration, modern tech victory, dark gradient purple to cyan, ${topic} completion`,
 }
 
-/* ─── Core Image Generation (fal.ai Primary) ─── */
+/* ─── Core Image Generation (fal.ai Primary with Retry) ─── */
 
 export async function generateSectionImage(
   config: SectionImageConfig,
   slug: string,
-  style: string = 'enterprise'
+  style: string = 'cinematic'
 ): Promise<string | null> {
   const promptBuilder = SECTION_PROMPTS[config.id] || SECTION_PROMPTS.tips
   const basePrompt = config.prompt || promptBuilder(config.title, slug)
@@ -90,25 +99,35 @@ export async function generateSectionImage(
   // Skip fal.ai if configured (e.g. local env where fal.ai doesn't reach)
   if (process.env.SKIP_FAL_AI !== 'true') {
     const filename = `${slug}-section-${config.id}`
-    const result = await falGenerateImage(fullPrompt, filename, {
+
+    // Primary attempt with flux-pro/v1.1
+    let result = await falGenerateImage(fullPrompt, filename, {
       width: 1024,
       height: 576,
+      model: 'fal-ai/flux-pro/v1.1',
     })
+
+    if (!result) {
+      console.warn(`  [retry] flux-pro/v1.1 failed, trying flux/dev for ${config.id}`)
+      result = await falGenerateImage(fullPrompt, filename, {
+        width: 1024,
+        height: 576,
+        model: 'fal-ai/flux/dev',
+      })
+    }
+
     if (result) return result
   }
 
   // Fallback to Pollinations
   console.warn(`  [fallback] Using Pollinations for ${config.id}`)
-  const fallbackPrompt = encodeURIComponent(
-    `${basePrompt}, dark gradient background purple to cyan, minimalist digital art`
-  )
-  return `https://image.pollinations.ai/prompt/${fallbackPrompt}?width=1024&height=576&nologo=true&seed=${Date.now()}`
+  return pollinationsSectionFallback(basePrompt)
 }
 
 export async function generateSectionImages(
   sections: SectionImageConfig[],
   slug: string,
-  style: string = 'enterprise'
+  style: string = 'cinematic'
 ): Promise<Record<string, string>> {
   const results: Record<string, string> = {}
 
@@ -122,11 +141,11 @@ export async function generateSectionImages(
         console.log(`  ✅ Section ${i + 1}/${sections.length}: "${sec.id}"`)
       }
     } catch (e) {
-      console.log(`  ❌ Section ${i + 1}/${sections.length}: "${sec.id}" failed`)
+      console.log(`  ❌ Section ${i + 1}/${sections.length}: "${sec.id}" failed — ${(e as Error).message}`)
     }
     // Rate limit friendly delay
     if (i < sections.length - 1) {
-      await new Promise(r => setTimeout(r, 600))
+      await new Promise((r) => setTimeout(r, 600))
     }
   }
 
@@ -140,7 +159,18 @@ export async function generateFeaturedImage(
   slug: string
 ): Promise<string> {
   if (process.env.SKIP_FAL_AI !== 'true') {
-    const falResult = await falGenerateHero(title, category, slug)
+    // Primary: flux-pro/v1.1
+    let falResult = await falGenerateHero(title, category, slug)
+
+    if (!falResult) {
+      console.warn('  [retry] flux-pro hero failed, trying flux/dev')
+      falResult = await falGenerateImage(
+        `Professional tech blog hero image for article about "${title}". Modern dark theme with purple and cyan gradient accents. Abstract visualization of ${category} technology. Clean minimalist digital art style, no text, no watermarks, high quality 4K illustration, futuristic tech aesthetic`,
+        `${slug}-hero`,
+        { width: 1200, height: 630, model: 'fal-ai/flux/dev' }
+      )
+    }
+
     if (falResult) return falResult
   }
 
@@ -154,7 +184,17 @@ export async function generateOGImage(
   author: string = 'יוסף אלישר'
 ): Promise<string> {
   if (process.env.SKIP_FAL_AI !== 'true') {
-    const falResult = await falGenerateOG(title, slug, author)
+    let falResult = await falGenerateOG(title, slug, author)
+
+    if (!falResult) {
+      console.warn('  [retry] flux-pro OG failed, trying flux/dev')
+      falResult = await falGenerateImage(
+        `Social media card for tech article "${title}" by ${author}. Bold typography-ready background, tech blog aesthetic, dark theme with purple to cyan gradient, abstract geometric patterns, modern professional design, no text, clean composition, 4K quality`,
+        `og-${slug}`,
+        { width: 1200, height: 630, model: 'fal-ai/flux/dev' }
+      )
+    }
+
     if (falResult) return falResult
   }
 
@@ -204,33 +244,3 @@ export async function downloadImage(url: string, filename: string): Promise<stri
     return null
   }
 }
-
-/* ─── Test ─── */
-async function main() {
-  console.log('🧪 Image Pipeline Test (fal.ai primary)\n')
-
-  const sections: SectionImageConfig[] = [
-    { id: 'intro', title: 'Introduction' },
-    { id: 'installation', title: 'Installation Guide' },
-    { id: 'components', title: 'Core Components' },
-    { id: 'usage', title: 'Usage Examples' },
-    { id: 'advanced', title: 'Advanced Techniques' },
-    { id: 'conclusion', title: 'Conclusion' },
-  ]
-
-  const result = await generateAllArticleImages(
-    'Docker: The Complete Guide',
-    'DevOps',
-    ['docker', 'containers', 'devops'],
-    'test-docker-multi',
-    sections
-  )
-
-  console.log('\n📊 Results:')
-  console.log('Featured:', result.featured)
-  console.log('OG:', result.og)
-  console.log('Sections:', Object.keys(result.sections))
-}
-
-const isMain = import.meta.url === `file://${process.argv[1]}`
-if (isMain) main().catch(console.error)

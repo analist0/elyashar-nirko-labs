@@ -1,8 +1,8 @@
-#!/usr/bin/env ts-node
+#!/usr/bin/env tsx
 /**
- * Ultra Content Machine — Professional Tech Blog Generator
- * Generates ultra-detailed Hebrew guides with multiple images, code blocks,
- * responsive components, analytics, and top-tier SEO.
+ * Ultra Content Machine v2.0 — Fully Automated AI Blog Pipeline
+ * Generates 3 Hebrew tech blog posts daily with professional fal.ai images.
+ * Includes retry logic, fallback models, comprehensive logging, and PM2 integration.
  */
 
 import * as fs from 'fs'
@@ -10,8 +10,8 @@ import * as path from 'path'
 import { fileURLToPath } from 'url'
 import * as dotenv from 'dotenv'
 dotenv.config({ path: '.env.local' })
+
 import { ollamaChatGenerate } from './ollama-ai.js'
-import { cfImageGenerate } from './cloudflare-ai.js'
 import { generateAllArticleImages, type SectionImageConfig } from './generate-images.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -69,15 +69,72 @@ interface TopicRecord {
   slug: string
 }
 
+interface PipelineResult {
+  success: boolean
+  post?: BlogPost
+  repo?: GitHubRepo
+  error?: string
+  durationMs: number
+}
+
 // ── Config ─────────────────────────────────────────────────────────────────
 
 const CONFIG = {
+  POSTS_PER_RUN: parseInt(process.env.POSTS_PER_DAY || '3', 10),
   POSTS_DIR: path.join(__dirname, '..', 'content', 'posts'),
   TOPICS_FILE: path.join(__dirname, '..', 'content', 'topics.json'),
   IMAGES_DIR: path.join(__dirname, '..', 'public', 'images', 'generated'),
+  LOGS_DIR: path.join(__dirname, '..', 'logs'),
   GITHUB_API: 'https://api.github.com/search/repositories',
   AUTHOR: 'יוסף אלישר',
   SITE_URL: 'https://elyasharlabs.com',
+}
+
+// ── Logger ─────────────────────────────────────────────────────────────────
+
+function getLogPath(): string {
+  const today = new Date().toISOString().slice(0, 10)
+  return path.join(CONFIG.LOGS_DIR, `daily-blog-${today}.log`)
+}
+
+function log(level: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS', message: string) {
+  const timestamp = new Date().toISOString()
+  const line = `[${timestamp}] [${level}] ${message}\n`
+
+  // Console output
+  const color = {
+    INFO: '\x1b[36m',
+    WARN: '\x1b[33m',
+    ERROR: '\x1b[31m',
+    SUCCESS: '\x1b[32m',
+  }[level]
+  console.log(`${color}${line}\x1b[0m`)
+
+  // File output
+  try {
+    if (!fs.existsSync(CONFIG.LOGS_DIR)) {
+      fs.mkdirSync(CONFIG.LOGS_DIR, { recursive: true })
+    }
+    fs.appendFileSync(getLogPath(), line)
+  } catch (e) {
+    // Silent fail — logging should never crash the pipeline
+  }
+}
+
+// ── Environment Validation ─────────────────────────────────────────────────
+
+function validateEnv(): boolean {
+  const required = ['FAL_KEY']
+  const missing = required.filter((k) => !process.env[k])
+
+  if (missing.length > 0) {
+    log('ERROR', `Missing required environment variables: ${missing.join(', ')}`)
+    log('ERROR', 'Please ensure .env.local exists and contains FAL_KEY')
+    return false
+  }
+
+  log('INFO', 'Environment validated successfully')
+  return true
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -85,6 +142,7 @@ const CONFIG = {
 function ensureDirs() {
   if (!fs.existsSync(CONFIG.POSTS_DIR)) fs.mkdirSync(CONFIG.POSTS_DIR, { recursive: true })
   if (!fs.existsSync(CONFIG.IMAGES_DIR)) fs.mkdirSync(CONFIG.IMAGES_DIR, { recursive: true })
+  if (!fs.existsSync(CONFIG.LOGS_DIR)) fs.mkdirSync(CONFIG.LOGS_DIR, { recursive: true })
 }
 
 function loadTopics(): TopicRecord[] {
@@ -100,8 +158,18 @@ function saveTopics(topics: TopicRecord[]) {
 
 function isTopicWritten(topic: string, topics: TopicRecord[]): boolean {
   const normalized = topic.toLowerCase().trim()
-  return topics.some(r => r.topics.some(t => t.toLowerCase().trim() === normalized))
+  return topics.some((r) => r.topics.some((t) => t.toLowerCase().trim() === normalized))
 }
+
+function sanitizeSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9֐-׿]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-+/g, '-')
+}
+
+// ── GitHub Fetching ────────────────────────────────────────────────────────
 
 async function fetchTrendingRepos(): Promise<GitHubRepo[]> {
   const queries = [
@@ -114,6 +182,9 @@ async function fetchTrendingRepos(): Promise<GitHubRepo[]> {
     'topic:web-framework stars:>2000',
     'topic:devops stars:>2000',
     'topic:automation stars:>2000',
+    'topic:cybersecurity stars:>2000',
+    'topic:blockchain stars:>2000',
+    'topic:data-science stars:>2000',
   ]
   const all: GitHubRepo[] = []
   const token = process.env.GITHUB_TOKEN
@@ -122,7 +193,7 @@ async function fetchTrendingRepos(): Promise<GitHubRepo[]> {
     try {
       const headers: Record<string, string> = {
         Accept: 'application/vnd.github.v3+json',
-        'User-Agent': 'Ultra-Content-Machine',
+        'User-Agent': 'Ultra-Content-Machine-v2',
       }
       if (token) headers.Authorization = `token ${token}`
 
@@ -130,21 +201,26 @@ async function fetchTrendingRepos(): Promise<GitHubRepo[]> {
         `${CONFIG.GITHUB_API}?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=8`,
         { headers }
       )
-      if (!res.ok) { console.warn(`GitHub error ${res.status} for "${q}"`); continue }
+      if (!res.ok) {
+        log('WARN', `GitHub API error ${res.status} for query: "${q}"`)
+        continue
+      }
       const data = await res.json()
       if (data.items) all.push(...data.items)
-      await new Promise(r => setTimeout(r, 800))
-    } catch (e) { console.error(`Fetch error for "${q}":`, e) }
+      await new Promise((r) => setTimeout(r, 800))
+    } catch (e) {
+      log('ERROR', `Fetch error for "${q}": ${(e as Error).message}`)
+    }
   }
 
   const unique = new Map<string, GitHubRepo>()
-  all.forEach(r => unique.set(r.full_name, r))
+  all.forEach((r) => unique.set(r.full_name, r))
   return Array.from(unique.values())
     .sort((a, b) => b.stargazers_count - a.stargazers_count)
-    .slice(0, 15)
+    .slice(0, 20)
 }
 
-// ── Content Generation ─────────────────────────────────────────────────────
+// ── Content Prompt Builder ─────────────────────────────────────────────────
 
 function buildContentPrompt(repo: GitHubRepo): string {
   const { name, description, stargazers_count, language, topics, html_url } = repo
@@ -213,7 +289,10 @@ function buildContentPrompt(repo: GitHubRepo): string {
 - קוד אמיתי 100%
 - השתמש ב: tables, lists, tips (class="tip"), warnings (class="warning"), highlights (class="highlight")
 - כתוב בעברית תקנית, חמה ומקצועית
-- תן זווית ייחודית שלא מופיעה במדריכים אחרים`}
+- תן זווית ייחודית שלא מופיעה במדריכים אחרים`
+}
+
+// ── Section Parser ─────────────────────────────────────────────────────────
 
 function parseSections(html: string): ArticleSection[] {
   const sections: ArticleSection[] = []
@@ -224,11 +303,9 @@ function parseSections(html: string): ArticleSection[] {
     const id = match[1]
     const content = match[2].trim()
 
-    // Extract title from h2
     const titleMatch = content.match(/<h2>([<\s\S]*?)<\/h2>/)
     const title = titleMatch ? titleMatch[1].replace(/<[^>>]*>/g, '').trim() : id
 
-    // Remove h2 from html since we handle title separately
     const htmlWithoutTitle = content.replace(/<h2>[<\s\S]*?<\/h2>/, '').trim()
 
     const imagePrompts: Record<string, string> = {
@@ -255,15 +332,13 @@ function parseSections(html: string): ArticleSection[] {
   return sections
 }
 
+// ── HTML Assembler ─────────────────────────────────────────────────────────
+
 function assembleHtml(sections: ArticleSection[], repo: GitHubRepo): string {
-  const parts = sections.map(s => {
-    const imgHtml = s.imageUrl
-      ? `<div class="section-image"><img src="${s.imageUrl}" alt="${s.title}" loading="lazy" /></div>`
-      : ''
+  const parts = sections.map((s) => {
     return `
 <section id="${s.id}" class="article-section">
   <h2 class="section-title">${s.title}</h2>
-  ${imgHtml}
   <div class="section-content">${s.html}</div>
 </section>`
   })
@@ -283,6 +358,8 @@ ${parts.join('\n')}
 </article>
 `.trim()
 }
+
+// ── JSON-LD Builder ────────────────────────────────────────────────────────
 
 function buildJsonLd(post: BlogPost, repo: GitHubRepo): object {
   const kws = (post.keywords || post.tags || []).join(', ')
@@ -318,107 +395,124 @@ function buildJsonLd(post: BlogPost, repo: GitHubRepo): object {
   }
 }
 
-async function generateUltraGuide(repo: GitHubRepo): Promise<BlogPost> {
-  const slug = `${repo.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`
+// ── Single Post Generator ──────────────────────────────────────────────────
+
+async function generateSinglePost(repo: GitHubRepo, index: number, total: number): Promise<PipelineResult> {
+  const startTime = Date.now()
+  const slug = `${sanitizeSlug(repo.name)}-${Date.now()}`
   const date = new Date().toISOString()
 
-  // 1. Generate content via Ollama Pro
-  console.log('🤖 Generating ultra-guide via Ollama Pro...')
-  let rawHtml = ''
-  let title = `${repo.name}: המדריך המקיף להתקנה ושימוש מקצועי`
-  let excerpt = `מדריך מקיף ומפורט על ${repo.name} — ${repo.description || 'כלי פופולרי בקוד פתוח'}. כולל התקנה שלב אחר שלב, רכיבים רספונסיביים, אנליטיקס, טיפים נדירים, ודוגמאות קוד אמיתיות.`
+  log('INFO', `[${index + 1}/${total}] Generating post for: ${repo.full_name}`)
 
   try {
-    const systemMsg = {
-      role: 'system',
-      content: 'אתה כותב טכנולוגי בכיר ישראלי. אתה כותב ב-HTML בלבד. אין Markdown. תן תוכן מעמיק ומקורי.',
+    // 1. Generate content via Ollama Pro
+    log('INFO', `[${index + 1}/${total}] Generating content via AI...`)
+    let rawHtml = ''
+    let title = `${repo.name}: המדריך המקיף להתקנה ושימוש מקצועי`
+    let excerpt = `מדריך מקיף ומפורט על ${repo.name} — ${repo.description || 'כלי פופולרי בקוד פתוח'}. כולל התקנה שלב אחר שלב, רכיבים רספונסיביים, אנליטיקס, טיפים נדירים, ודוגמאות קוד אמיתיות.`
+
+    try {
+      const systemMsg = {
+        role: 'system',
+        content: 'אתה כותב טכנולוגי בכיר ישראלי. אתה כותב ב-HTML בלבד. אין Markdown. תן תוכן מעמיק ומקורי.',
+      }
+      const userMsg = { role: 'user', content: buildContentPrompt(repo) }
+
+      rawHtml = await ollamaChatGenerate([systemMsg, userMsg], { numPredict: 6000 })
+
+      const titleMatch = rawHtml.match(/<h2>([^<]+)<\/h2>/)
+      if (titleMatch) title = titleMatch[1].trim()
+
+      log('SUCCESS', `[${index + 1}/${total}] Content generated: ${rawHtml.length} chars`)
+    } catch (err) {
+      log('WARN', `[${index + 1}/${total}] AI generation failed, using fallback: ${(err as Error).message.slice(0, 120)}`)
+      rawHtml = buildFallbackHtml(repo)
     }
-    const userMsg = { role: 'user', content: buildContentPrompt(repo) }
 
-    rawHtml = await ollamaChatGenerate([systemMsg, userMsg], { numPredict: 6000 })
+    // 2. Parse sections
+    let sections = parseSections(rawHtml)
+    if (sections.length === 0) {
+      sections = [{
+        id: 'content',
+        title: 'תוכן מקיף',
+        html: rawHtml,
+        imagePrompt: `${repo.name} tech visualization`,
+      }]
+    }
 
-    // Try to extract title from first h2
-    const titleMatch = rawHtml.match(/<h2>([^<]+)<\/h2>/)
-    if (titleMatch) title = titleMatch[1].trim()
+    // 3. Generate images
+    log('INFO', `[${index + 1}/${total}] Generating images...`)
+    const sectionConfigs: SectionImageConfig[] = sections.map((s) => ({
+      id: s.id,
+      title: s.title,
+      prompt: s.imagePrompt,
+    }))
 
-    console.log(`✅ Content generated: ${rawHtml.length} chars`)
+    const { featured, og, sections: sectionImages } = await generateAllArticleImages(
+      title,
+      getCategory(repo),
+      [repo.language, ...repo.topics.slice(0, 5), 'GitHub', 'מדריך', '2026', 'Open Source'].filter(Boolean) as string[],
+      slug,
+      sectionConfigs
+    )
+
+    for (const sec of sections) {
+      if (sectionImages[sec.id]) {
+        sec.imageUrl = sectionImages[sec.id]
+      }
+    }
+
+    // 4. Assemble
+    const fullHtml = assembleHtml(sections, repo)
+    const wordCount = fullHtml.split(/\s+/).length
+
+    const tags = [repo.language, ...repo.topics.slice(0, 5), 'GitHub', 'מדריך', '2026', 'Open Source'].filter(Boolean) as string[]
+    const category = getCategory(repo)
+    const canonicalUrl = `${CONFIG.SITE_URL}/blog/${slug}/`
+
+    const post: BlogPost = {
+      slug,
+      title,
+      content: fullHtml,
+      sections,
+      excerpt,
+      date,
+      readTime: `${Math.ceil(wordCount / 200)} דקות קריאה`,
+      tags,
+      category,
+      githubUrl: repo.html_url,
+      source: 'github-trending',
+      imageUrl: featured,
+      author: CONFIG.AUTHOR,
+      ogTitle: title,
+      ogDescription: excerpt,
+      ogImage: og,
+      keywords: [...tags, repo.name, 'התקנה', 'מדריך בעברית', category],
+      canonicalUrl,
+      jsonLd: {},
+      wordCount,
+    }
+
+    post.jsonLd = buildJsonLd(post, repo)
+
+    // 5. Save
+    const filepath = path.join(CONFIG.POSTS_DIR, `${post.slug}.json`)
+    fs.writeFileSync(filepath, JSON.stringify(post, null, 2))
+    log('SUCCESS', `[${index + 1}/${total}] Post saved: ${filepath}`)
+
+    const durationMs = Date.now() - startTime
+    log('INFO', `[${index + 1}/${total}] Completed in ${(durationMs / 1000).toFixed(1)}s`)
+
+    return { success: true, post, repo, durationMs }
   } catch (err) {
-    console.warn('⚠️  Ollama failed, using fallback:', (err as Error).message.slice(0, 120))
-    rawHtml = buildFallbackHtml(repo)
+    const durationMs = Date.now() - startTime
+    const error = (err as Error).message
+    log('ERROR', `[${index + 1}/${total}] Failed: ${error}`)
+    return { success: false, repo, error, durationMs }
   }
-
-  // 2. Parse sections
-  let sections = parseSections(rawHtml)
-  if (sections.length === 0) {
-    sections = [{
-      id: 'content',
-      title: 'תוכן מקיף',
-      html: rawHtml,
-      imagePrompt: `${repo.name} tech visualization`,
-    }]
-  }
-
-  // 3. Generate all article images (featured + per-section)
-  const sectionConfigs: SectionImageConfig[] = sections.map(s => ({
-    id: s.id,
-    title: s.title,
-    prompt: s.imagePrompt,
-  }))
-
-  const { featured, og, sections: sectionImages } = await generateAllArticleImages(
-    title,
-    getCategory(repo),
-    [repo.language, ...repo.topics.slice(0, 5), 'GitHub', 'מדריך', '2026', 'Open Source'].filter(Boolean) as string[],
-    slug,
-    sectionConfigs
-  )
-
-  for (const sec of sections) {
-    if (sectionImages[sec.id]) {
-      sec.imageUrl = sectionImages[sec.id]
-    }
-  }
-
-  const featuredImage = featured
-  const ogImage = og
-
-  // 5. Assemble full HTML
-  const fullHtml = assembleHtml(sections, repo)
-  const wordCount = fullHtml.split(/\s+/).length
-
-  // 6. Build post
-  const tags = [repo.language, ...repo.topics.slice(0, 5), 'GitHub', 'מדריך', '2026', 'Open Source'].filter(Boolean) as string[]
-  const category = getCategory(repo)
-  const canonicalUrl = `${CONFIG.SITE_URL}/blog/${slug}/`
-
-  const post: BlogPost = {
-    slug,
-    title,
-    content: fullHtml,
-    sections,
-    excerpt,
-    date,
-    readTime: `${Math.ceil(wordCount / 200)} דקות קריאה`,
-    tags,
-    category,
-    githubUrl: repo.html_url,
-    source: 'github-trending',
-    imageUrl: featuredImage,
-    author: CONFIG.AUTHOR,
-    ogTitle: title,
-    ogDescription: excerpt,
-    ogImage: ogImage,
-    keywords: [...tags, repo.name, 'התקנה', 'מדריך בעברית', category],
-    canonicalUrl,
-    jsonLd: {},
-    wordCount,
-  }
-
-  post.jsonLd = buildJsonLd(post, repo)
-  return post
 }
 
-// ── Fallback ────────────────────────────────────────────────────────────────
+// ── Fallback HTML ──────────────────────────────────────────────────────────
 
 function buildFallbackHtml(repo: GitHubRepo): string {
   const { name, description, html_url, stargazers_count, language } = repo
@@ -439,113 +533,180 @@ cd ${name}</code></pre>
 `
 }
 
-// ── Category ───────────────────────────────────────────────────────────────
+// ── Category Mapper ────────────────────────────────────────────────────────
 
 function getCategory(repo: GitHubRepo): string {
   const map: Record<string, string> = {
-    ai: 'בינה מלאכותית', 'machine-learning': 'Machine Learning',
-    'artificial-intelligence': 'בינה מלאכותית', automation: 'אוטומציה',
-    devops: 'DevOps', security: 'אבטחת מידע', web: 'פיתוח Web',
-    'web-development': 'פיתוח Web', cli: 'כלי CLI',
-    database: 'בסיסי נתונים', api: 'API Development',
-    cloud: 'ענן ותשתיות', docker: 'DevOps', kubernetes: 'DevOps',
+    ai: 'בינה מלאכותית',
+    'machine-learning': 'Machine Learning',
+    'artificial-intelligence': 'בינה מלאכותית',
+    automation: 'אוטומציה',
+    devops: 'DevOps',
+    security: 'אבטחת מידע',
+    web: 'פיתוח Web',
+    'web-development': 'פיתוח Web',
+    cli: 'כלי CLI',
+    database: 'בסיסי נתונים',
+    api: 'API Development',
+    cloud: 'ענן ותשתיות',
+    docker: 'DevOps',
+    kubernetes: 'DevOps',
+    cybersecurity: 'אבטחת מידע',
+    blockchain: "בלוקצ'יין",
+    'data-science': 'Data Science',
   }
   for (const t of repo.topics) {
     const cat = map[t.toLowerCase()]
     if (cat) return cat
   }
   const langMap: Record<string, string> = {
-    Python: 'פיתוח Python', TypeScript: 'פיתוח Web',
-    JavaScript: 'פיתוח Web', Go: 'פיתוח Go',
-    Rust: 'פיתוח Rust', Java: 'פיתוח Java',
+    Python: 'פיתוח Python',
+    TypeScript: 'פיתוח Web',
+    JavaScript: 'פיתוח Web',
+    Go: 'פיתוח Go',
+    Rust: 'פיתוח Rust',
+    Java: 'פיתוח Java',
+    'C++': 'פיתוח C++',
+    'C#': 'פיתוח C#',
   }
   return langMap[repo.language || ''] || 'טכנולוגיה'
 }
 
-// ── Save ────────────────────────────────────────────────────────────────────
+// ── Repo Selector ──────────────────────────────────────────────────────────
 
-function savePost(post: BlogPost) {
-  const filepath = path.join(CONFIG.POSTS_DIR, `${post.slug}.json`)
-  fs.writeFileSync(filepath, JSON.stringify(post, null, 2))
-  console.log(`💾 Post saved: ${filepath}`)
-}
+function selectRepos(repos: GitHubRepo[], written: TopicRecord[], count: number): GitHubRepo[] {
+  const selected: GitHubRepo[] = []
 
-// ── Main ─────────────────────────────────────────────────────────────────────
-
-async function main() {
-  console.log('🚀 Ultra Content Machine — Starting...\n')
-  console.log('='.repeat(60))
-
-  ensureDirs()
-  const written = loadTopics()
-  console.log(`📚 Previously written: ${written.length} topics`)
-
-  console.log('\n🔍 Fetching trending repositories...')
-  const repos = await fetchTrendingRepos()
-  console.log(`✅ Found ${repos.length} repositories`)
-
-  let selected: GitHubRepo | null = null
   for (const repo of repos) {
+    if (selected.length >= count) break
+
     const topics = [repo.name, repo.language, ...repo.topics].filter(Boolean)
-    if (!topics.some(t => isTopicWritten(t, written))) {
-      selected = repo
-      break
+    const alreadyWritten = topics.some((t) => isTopicWritten(t, written))
+
+    if (!alreadyWritten) {
+      // Also check not already selected in this run
+      const alreadySelected = selected.some((s) => s.full_name === repo.full_name)
+      if (!alreadySelected) {
+        selected.push(repo)
+      }
     }
   }
 
-  if (!selected) {
-    console.log('\n⚠️  All topics already written!')
-    return
+  return selected
+}
+
+// ── Main Pipeline ──────────────────────────────────────────────────────────
+
+async function runPipeline(): Promise<{ results: PipelineResult[]; totalDurationMs: number }> {
+  const pipelineStart = Date.now()
+
+  log('INFO', '='.repeat(60))
+  log('INFO', '🚀 Ultra Content Machine v2.0 — Starting')
+  log('INFO', `📊 Posts per run: ${CONFIG.POSTS_PER_RUN}`)
+  log('INFO', '='.repeat(60))
+
+  if (!validateEnv()) {
+    return { results: [], totalDurationMs: 0 }
   }
 
-  console.log('\n' + '='.repeat(60))
-  console.log('📝 SELECTED REPOSITORY:')
-  console.log('='.repeat(60))
-  console.log(`   Name: ${selected.full_name}`)
-  console.log(`   ⭐ Stars: ${selected.stargazers_count.toLocaleString()}`)
-  console.log(`   🏷️  Language: ${selected.language || 'N/A'}`)
-  console.log(`   📅 Created: ${new Date(selected.created_at).toLocaleDateString('he-IL')}`)
-  console.log(`   🔗 URL: ${selected.html_url}`)
-  console.log('='.repeat(60))
+  ensureDirs()
+  const written = loadTopics()
+  log('INFO', `📚 Previously written: ${written.length} topics`)
 
-  console.log('\n✍️  Generating ultra-guide...')
-  const post = await generateUltraGuide(selected)
+  log('INFO', '\n🔍 Fetching trending repositories...')
+  const repos = await fetchTrendingRepos()
+  log('INFO', `✅ Found ${repos.length} unique repositories`)
 
-  console.log('\n🖼️  Images:')
-  console.log(`   Featured: ${post.imageUrl || '❌'}`)
-  post.sections.forEach((s, i) => {
-    console.log(`   Section ${i + 1} (${s.id}): ${s.imageUrl || '❌'}`)
+  const selected = selectRepos(repos, written, CONFIG.POSTS_PER_RUN)
+
+  if (selected.length === 0) {
+    log('WARN', '⚠️  All topics already written or no new repos available!')
+    return { results: [], totalDurationMs: Date.now() - pipelineStart }
+  }
+
+  log('INFO', `\n🎯 Selected ${selected.length} repositories for generation:`)
+  selected.forEach((r, i) => {
+    log('INFO', `   ${i + 1}. ${r.full_name} (${r.stargazers_count.toLocaleString()} ⭐)`)
   })
 
-  console.log('\n💾 Saving...')
-  savePost(post)
+  const results: PipelineResult[] = []
 
-  const newRecord: TopicRecord = {
-    topics: [selected.name, selected.language, ...selected.topics].filter(Boolean) as string[],
-    writtenAt: new Date().toISOString(),
-    slug: post.slug,
+  for (let i = 0; i < selected.length; i++) {
+    const repo = selected[i]
+    log('INFO', `\n${'─'.repeat(60)}`)
+    log('INFO', `📄 Post ${i + 1}/${selected.length}: ${repo.full_name}`)
+    log('INFO', `${'─'.repeat(60)}`)
+
+    const result = await generateSinglePost(repo, i, selected.length)
+    results.push(result)
+
+    // Save topic record immediately on success
+    if (result.success && result.post) {
+      const newRecord: TopicRecord = {
+        topics: [repo.name, repo.language, ...repo.topics].filter(Boolean) as string[],
+        writtenAt: new Date().toISOString(),
+        slug: result.post.slug,
+      }
+      written.push(newRecord)
+      saveTopics(written)
+    }
+
+    // Brief pause between posts to avoid rate limits
+    if (i < selected.length - 1) {
+      log('INFO', `⏳ Pausing 2s before next post...`)
+      await new Promise((r) => setTimeout(r, 2000))
+    }
   }
-  written.push(newRecord)
-  saveTopics(written)
 
-  console.log('\n' + '='.repeat(60))
-  console.log('✅ ULTRA GUIDE GENERATED!')
-  console.log('='.repeat(60))
-  console.log(`   📄 Title: ${post.title}`)
-  console.log(`   🔗 Slug: ${post.slug}`)
-  console.log(`   📊 Category: ${post.category}`)
-  console.log(`   📝 Words: ${post.wordCount.toLocaleString()}`)
-  console.log(`   ⏱️  Read time: ${post.readTime}`)
-  console.log(`   🏷️  Tags: ${post.tags.slice(0, 5).join(', ')}`)
-  console.log(`   🖼️  Images: ${post.sections.filter(s => s.imageUrl).length}/${post.sections.length} + featured`)
-  console.log(`   👤 Author: ${post.author}`)
-  console.log(`   🔗 Canonical: ${post.canonicalUrl}`)
-  console.log('='.repeat(60))
+  const totalDurationMs = Date.now() - pipelineStart
+
+  // Summary
+  const successful = results.filter((r) => r.success).length
+  const failed = results.filter((r) => !r.success).length
+
+  log('INFO', '\n' + '='.repeat(60))
+  log('INFO', '📊 PIPELINE SUMMARY')
+  log('INFO', '='.repeat(60))
+  log('INFO', `   ✅ Successful: ${successful}/${selected.length}`)
+  log('INFO', `   ❌ Failed: ${failed}/${selected.length}`)
+  log('INFO', `   ⏱️  Total time: ${(totalDurationMs / 1000).toFixed(1)}s`)
+  log('INFO', `   📝 New topics: ${written.length} total in topics.json`)
+  log('INFO', '='.repeat(60))
+
+  results.forEach((r, i) => {
+    if (r.success && r.post) {
+      log('SUCCESS', `   ${i + 1}. ✅ ${r.post.title.slice(0, 50)}... (${r.post.wordCount} words)`)
+    } else {
+      log('ERROR', `   ${i + 1}. ❌ ${r.repo?.full_name || 'Unknown'} — ${r.error?.slice(0, 60)}`)
+    }
+  })
+
+  log('INFO', '='.repeat(60))
+
+  return { results, totalDurationMs }
+}
+
+// ── CLI Entry ──────────────────────────────────────────────────────────────
+
+async function main() {
+  const { results, totalDurationMs } = await runPipeline()
+
+  const successful = results.filter((r) => r.success).length
+
+  if (successful === 0) {
+    log('ERROR', 'Pipeline completed with 0 successful posts. Exiting with error.')
+    process.exit(1)
+  }
+
+  log('SUCCESS', `Pipeline completed: ${successful}/${results.length} posts generated in ${(totalDurationMs / 1000).toFixed(1)}s`)
 }
 
 const isMain = import.meta.url === `file://${process.argv[1]}`
 if (isMain) {
-  main().catch(console.error)
+  main().catch((err) => {
+    log('ERROR', `Unhandled pipeline error: ${err.message}`)
+    process.exit(1)
+  })
 }
 
-export { main, fetchTrendingRepos, generateUltraGuide }
+export { runPipeline, generateSinglePost, fetchTrendingRepos }
