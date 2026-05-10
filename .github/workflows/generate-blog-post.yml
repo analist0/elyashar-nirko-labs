@@ -1,47 +1,29 @@
-name: Ultra Content Machine — Daily Blog Generation
+name: Ultra Content Machine — Daily Blog Generation (Test/Backup)
+
+# WARNING: This workflow is for TESTING and BACKUP only.
+# The production site is served from the owner's private server.
+# GitHub is used solely for project backup and maintenance.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'content/**'
-      - 'public/images/**'
-      - 'src/**'
-      - 'scripts/**'
-      - '.github/workflows/**'
-      - 'package.json'
-      - 'next.config.js'
-      - 'tailwind.config.js'
   schedule:
     # 9:00 AM Israel time (UTC+3) = 6:00 UTC
     - cron: '0 6 * * *'
   workflow_dispatch:
     inputs:
       manual_trigger:
-        description: 'Trigger manual generation'
+        description: 'Trigger manual generation (test mode)'
         required: false
         default: 'true'
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   generate-post:
     runs-on: ubuntu-latest
-    if: github.event_name != 'push'
-    outputs:
-      changed: ${{ steps.verify.outputs.changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -65,7 +47,7 @@ jobs:
 
       - name: Generate ultra blog post
         run: |
-          echo "Starting Ultra Content Machine..."
+          echo "Starting Ultra Content Machine (TEST MODE)..."
           npx tsx scripts/generate-content.ts
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
@@ -81,42 +63,5 @@ jobs:
             echo "No new content today"
           fi
 
-      - name: Commit and push
-        if: steps.verify.outputs.changed == 'true'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "Ultra Content Bot"
-          git add content/ public/images/generated/
-          git commit -m "Ultra Content: $(date '+%Y-%m-%d') auto-generated guide"
-          git push
-
-  build-and-deploy:
-    needs: generate-post
-    runs-on: ubuntu-latest
-    if: always() && (needs.generate-post.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push')
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build Next.js
-        run: npm run build
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './dist'
-
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
+      # NOTE: No deployment to GitHub Pages. The production site runs on the owner's server.
+      # Content generated here is for testing/backup only and must be pulled to the server manually.
