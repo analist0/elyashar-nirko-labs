@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * fal.ai Image Generator — FLUX.1 Dev / Schnell
+ * fal.ai Image Generator — FLUX.1 Pro v1.1 / FLUX.2 Pro / nano-banana-2
  * Enterprise-grade image generation for blog posts
  */
 
@@ -25,42 +25,109 @@ function ensureDir() {
   }
 }
 
+type ModelId =
+  | 'fal-ai/flux/dev'
+  | 'fal-ai/flux/schnell'
+  | 'fal-ai/flux-pro/v1.1'
+  | 'fal-ai/flux-2-pro'
+  | 'fal-ai/flux-2'
+  | 'fal-ai/nano-banana-2'
+
 interface GenerateOptions {
   width?: number
   height?: number
-  model?: 'fal-ai/flux/dev' | 'fal-ai/flux/schnell' | 'fal-ai/flux-pro'
+  model?: ModelId
+}
+
+function buildInput(
+  prompt: string,
+  width: number,
+  height: number,
+  model: ModelId
+): Record<string, any> {
+  const base = {
+    prompt,
+    image_size: { width, height },
+    output_format: 'png',
+  }
+
+  switch (model) {
+    case 'fal-ai/flux-pro/v1.1':
+      return {
+        ...base,
+        num_images: 1,
+        num_inference_steps: 28,
+        guidance_scale: 3.5,
+        safety_tolerance: '2',
+        enhance_prompt: true,
+      }
+    case 'fal-ai/flux-2-pro':
+      return {
+        ...base,
+        safety_tolerance: '2',
+      }
+    case 'fal-ai/flux-2':
+      return {
+        ...base,
+        num_images: 1,
+        num_inference_steps: 28,
+        guidance_scale: 3.5,
+        enable_safety_checker: true,
+      }
+    case 'fal-ai/nano-banana-2':
+      return {
+        prompt,
+        resolution: width >= 1200 ? '2K' : '1K',
+        aspect_ratio: width > height ? '16:9' : height > width ? '9:16' : '1:1',
+        safety_tolerance: '2',
+        output_format: 'png',
+      }
+    case 'fal-ai/flux/schnell':
+      return {
+        ...base,
+        num_images: 1,
+        num_inference_steps: 4,
+        guidance_scale: 3.5,
+        enable_safety_checker: true,
+      }
+    case 'fal-ai/flux/dev':
+    default:
+      return {
+        ...base,
+        num_images: 1,
+        num_inference_steps: 28,
+        guidance_scale: 3.5,
+        safety_tolerance: '2',
+      }
+  }
 }
 
 /**
- * Generate a single image using fal.ai FLUX
+ * Generate a single image using fal.ai
  */
 export async function falGenerateImage(
   prompt: string,
   filename: string,
   options: GenerateOptions = {}
 ): Promise<string | null> {
-  const { width = 1024, height = 576, model = 'fal-ai/flux/dev' } = options
+  const { width = 1024, height = 576, model = 'fal-ai/flux-pro/v1.1' } = options
 
   ensureDir()
   const filepath = path.join(IMAGES_DIR, `${filename}.png`)
 
   try {
-    console.log(`  [fal.ai] Generating: ${filename} (${width}x${height})`)
+    console.log(`  [fal.ai] Generating: ${filename} (${width}x${height}) model=${model}`)
     console.log(`  Prompt: ${prompt.slice(0, 80)}...`)
 
-    // 30s timeout — fal.ai can be slow
-    const timeoutMs = 30000
+    const timeoutMs = 45000
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('fal.ai timeout')), timeoutMs)
     })
 
+    const input = buildInput(prompt, width, height, model)
+
     const falPromise = fal.subscribe(model, {
-      input: {
-        prompt,
-        image_size: { width, height },
-        num_images: 1,
-        safety_tolerance: '2',
-      },
+      input: input as any,
       logs: true,
       onQueueUpdate: (update) => {
         if (update.status === 'IN_PROGRESS') {
@@ -77,7 +144,6 @@ export async function falGenerateImage(
       return null
     }
 
-    // Download the image
     const response = await fetch(imageUrl)
     if (!response.ok) {
       throw new Error(`Failed to download image: ${response.status}`)
@@ -87,12 +153,12 @@ export async function falGenerateImage(
     fs.writeFileSync(filepath, buffer)
 
     const publicPath = `/images/generated/${filename}.png`
-    console.log(`  [fal.ai] Saved: ${publicPath}`)
+    console.log(`  [fal.ai] Saved: ${publicPath} (${(buffer.length / 1024).toFixed(1)}KB)`)
     return publicPath
 
   } catch (err: any) {
     if (err.name === 'AbortError' || err.message?.includes('timeout') || err.message?.includes('abort')) {
-      console.warn(`  [fal.ai] Timeout after 30s for ${filename} — using fallback`)
+      console.warn(`  [fal.ai] Timeout after ${45}s for ${filename} — using fallback`)
     } else {
       console.error(`  [fal.ai] Error generating ${filename}:`, err.message || err)
     }
@@ -117,6 +183,7 @@ high quality 4K illustration, futuristic tech aesthetic`
   return falGenerateImage(prompt, `${slug}-hero`, {
     width: 1200,
     height: 630,
+    model: 'fal-ai/flux-pro/v1.1',
   })
 }
 
@@ -140,6 +207,7 @@ modern tech aesthetic, no text, high quality digital art`
   return falGenerateImage(prompt, `${slug}-section-${sectionId}`, {
     width: 1024,
     height: 576,
+    model: 'fal-ai/flux-pro/v1.1',
   })
 }
 
@@ -160,6 +228,7 @@ no text, clean composition, 4K quality`
   return falGenerateImage(prompt, `og-${slug}`, {
     width: 1200,
     height: 630,
+    model: 'fal-ai/flux-pro/v1.1',
   })
 }
 
@@ -178,13 +247,9 @@ export async function generateBlogImagePack(
 }> {
   console.log(`\n🎨 [fal.ai] Generating image pack for "${title}"...`)
 
-  // Generate hero
   const hero = await generateHeroImage(title, category, slug)
-
-  // Generate OG
   const og = await generateOGImage(title, slug)
 
-  // Generate section images (sequentially to avoid rate limits)
   const sectionImages: Record<string, string> = {}
   for (let i = 0; i < sections.length; i++) {
     const sec = sections[i]
@@ -192,7 +257,6 @@ export async function generateBlogImagePack(
     const url = await generateSectionImage(sec.title, sec.id, slug, title)
     if (url) {
       sectionImages[sec.id] = url
-      // Small delay between requests
       if (i < sections.length - 1) {
         await new Promise((r) => setTimeout(r, 500))
       }

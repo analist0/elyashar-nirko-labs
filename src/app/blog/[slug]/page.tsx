@@ -167,9 +167,11 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
                   ? post.sections.map((section) => {
                       let sectionHtml = `<h2>${section.title}</h2>`
                       if (section.imageUrl) {
-                        sectionHtml += `<img src="${section.imageUrl}" alt="${section.title}" />`
+                        sectionHtml += `<img src="${section.imageUrl}" alt="${section.title}" loading="lazy" class="w-full rounded-xl my-4" />`
                       }
-                      sectionHtml += section.html
+                      // Strip duplicate Pollinations images from section HTML
+                      const cleanHtml = section.html.replace(/<div class="section-image">[\s\S]*?<\/div>/g, '')
+                      sectionHtml += cleanHtml
                       return sectionHtml
                     }).join('<hr />')
                   : post.content
