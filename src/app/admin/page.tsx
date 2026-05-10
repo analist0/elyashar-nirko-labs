@@ -754,6 +754,30 @@ export default function AdminPage() {
               )}
             </div>
 
+            {/* Duplicate Prevention Info */}
+            <div className={`border rounded-2xl p-6 ${cardBg}`}>
+              <div className="flex items-center gap-2 mb-4">
+                <Tags className="w-5 h-5 text-purple-400" />
+                <h3 className={`text-sm font-bold ${textMain}`}>נושאים שנכתבו כבר (מניעת כפילויות)</h3>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                המערכת לא תיצור פוסט על נושאים שכבר קיימים ברשימה זו. ניתן למחוק נושאים מהטאב "נושאים" כדי לאפשר יצירה מחדש.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {topics.slice(0, 20).map(t => (
+                  <span key={t.slug} className={`px-2 py-1 rounded-full text-xs ${isDark ? 'bg-white/10 text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
+                    {t.topics.slice(0, 3).join(', ')}
+                  </span>
+                ))}
+                {topics.length > 20 && (
+                  <span className="text-xs text-gray-500">+{topics.length - 20} נוספים...</span>
+                )}
+                {topics.length === 0 && (
+                  <span className="text-xs text-gray-500">אין נושאים עדיין — המערכת תיצור מהכל</span>
+                )}
+              </div>
+            </div>
+
             <h3 className={`text-md font-bold ${textMain}`}>לוגים אחרונים</h3>
             <div className={`border rounded-2xl overflow-hidden ${cardBg}`}>
               <div className="overflow-x-auto">
