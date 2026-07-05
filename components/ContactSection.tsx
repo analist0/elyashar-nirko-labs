@@ -10,11 +10,26 @@ import {
   Linkedin,
   Github,
   MessageCircle,
-  Clock,
   Sparkles,
   ArrowLeft,
   Users,
+  User,
+  AlertTriangle,
+  Check,
 } from 'lucide-react'
+
+// Telegram bot configs for each partner
+const MICHAEL_BOT = {
+  token: '8806963305:***',
+  chatId: '1799616677',
+  name: 'מיכאל נירקו',
+}
+
+const JOSEPH_BOT = {
+  token: '7934154320:***',
+  chatId: '6457374757',
+  name: 'יוסף אלישר',
+}
 
 const josephContact = [
   {
@@ -69,6 +84,46 @@ const socialLinks = [
   { icon: Linkedin, href: 'https://linkedin.com/in/josephelyashar', label: 'LinkedIn' },
 ]
 
+async function sendTelegramMessage(token: string, chatId: string, text: string) {
+  const params = new URLSearchParams()
+  params.append('chat_id', chatId)
+  params.append('text', text)
+  params.append('parse_mode', 'HTML')
+
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    body: params,
+    mode: 'no-cors',
+  })
+  return response
+}
+
+function checkRateLimit(): boolean {
+  try {
+    const key = 'en-contact-rate-limit'
+    const data = localStorage.getItem(key)
+    const now = Date.now()
+    if (!data) {
+      localStorage.setItem(key, JSON.stringify({ count: 1, windowStart: now }))
+      return true
+    }
+    const parsed = JSON.parse(data)
+    // 5 minute window, max 3 messages
+    if (now - parsed.windowStart > 5 * 60 * 1000) {
+      localStorage.setItem(key, JSON.stringify({ count: 1, windowStart: now }))
+      return true
+    }
+    if (parsed.count >= 3) {
+      return false
+    }
+    parsed.count += 1
+    localStorage.setItem(key, JSON.stringify(parsed))
+    return true
+  } catch {
+    return true
+  }
+}
+
 export default function ContactSection() {
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true })
@@ -77,35 +132,57 @@ export default function ContactSection() {
     email: '',
     phone: '',
     message: '',
+    partner: 'both', // 'joseph' | 'michael' | 'both'
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
+    setError('')
 
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_AGENT_URL?.replace('/chat', '') || 'http://localhost:3004'}/lead`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source: 'contact-form',
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          message: formData.message,
-        }),
-      })
-    } catch {
-      // silently fail
+    if (!checkRateLimit()) {
+      setError('יותר מדי הודעות נשלחו. אנא המתן מספר דקות.')
+      return
     }
 
-    setIsSubmitting(false)
-    setSubmitted(true)
-    setFormData({ name: '', email: '', phone: '', message: '' })
+    setIsSubmitting(true)
 
-    setTimeout(() => setSubmitted(false), 5000)
+    const telegramText = [
+      `<b>🔔 הודעה חדשה מטופס צור קשר</b>`,
+      `<b>שותף נבחר:</b> ${formData.partner === 'joseph' ? 'יוסף אלישר' : formData.partner === 'michael' ? 'מיכאל נירקו' : 'שני השותפים'}`,
+      ``,
+      `<b>שם:</b> ${formData.name || 'לא צוין'}`,
+      `<b>אימייל:</b> ${formData.email || 'לא צוין'}`,
+      `<b>טלפון:</b> ${formData.phone || 'לא צוין'}`,
+      ``,
+      `<b>💬 הודעה:</b>`,
+      formData.message,
+      ``,
+      `<i>נשלח מ- Elyashar & Nirko Labs Contact Form</i>`,
+    ].join('\n')
+
+    try {
+      const targets = []
+      if (formData.partner === 'joseph' || formData.partner === 'both') {
+        targets.push(sendTelegramMessage(JOSEPH_BOT.token, JOSEPH_BOT.chatId, telegramText))
+      }
+      if (formData.partner === 'michael' || formData.partner === 'both') {
+        targets.push(sendTelegramMessage(MICHAEL_BOT.token, MICHAEL_BOT.chatId, telegramText))
+      }
+
+      await Promise.all(targets)
+
+      setIsSubmitting(false)
+      setSubmitted(true)
+      setFormData({ name: '', email: '', phone: '', message: '', partner: 'both' })
+
+      setTimeout(() => setSubmitted(false), 5000)
+    } catch {
+      setIsSubmitting(false)
+      setError('שגיאה בשליחה. אנא נסה שוב.')
+    }
   }
 
   return (
@@ -144,7 +221,7 @@ export default function ContactSection() {
             className="glass rounded-2xl p-8 border border-gray-200 dark:border-white/10"
           >
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">שלח הודעה</h3>
-            
+
             {submitted ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -159,6 +236,49 @@ export default function ContactSection() {
               </motion.div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Partner Selection */}
+                <div>
+                  <label className="block text-gray-600 dark:text-gray-400 text-sm mb-3">אל מי לשלוח?</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, partner: 'joseph' })}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-sm ${
+                        formData.partner === 'joseph'
+                          ? 'border-purple-500 bg-purple-500/20 text-white'
+                          : 'border-gray-200 dark:border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white text-xs font-bold">JE</span>
+                      <span>יוסף</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, partner: 'michael' })}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-sm ${
+                        formData.partner === 'michael'
+                          ? 'border-cyan-500 bg-cyan-500/20 text-white'
+                          : 'border-gray-200 dark:border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center text-white text-xs font-bold">MN</span>
+                      <span>מיכאל</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, partner: 'both' })}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-sm ${
+                        formData.partner === 'both'
+                          ? 'border-green-500 bg-green-500/20 text-white'
+                          : 'border-gray-200 dark:border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs">✓</span>
+                      <span>שניהם</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-gray-600 dark:text-gray-400 text-sm mb-2">שם מלא</label>
@@ -183,7 +303,7 @@ export default function ContactSection() {
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-gray-600 dark:text-gray-400 text-sm mb-2">טלפון (אופציונלי)</label>
                   <input
@@ -207,6 +327,13 @@ export default function ContactSection() {
                   />
                 </div>
 
+                {error && (
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    {error}
+                  </div>
+                )}
+
                 <motion.button
                   type="submit"
                   disabled={isSubmitting}
@@ -223,7 +350,7 @@ export default function ContactSection() {
                   ) : (
                     <>
                       <Send className="w-5 h-5" />
-                      שלח הודעה
+                      שלח ל{formData.partner === 'joseph' ? 'יוסף' : formData.partner === 'michael' ? 'מיכאל' : 'שני השותפים'}
                     </>
                   )}
                 </motion.button>
@@ -231,7 +358,7 @@ export default function ContactSection() {
             )}
           </motion.div>
 
-          {/* Contact Info */}
+          {/* Contact Info - unchanged below */}
           <motion.div
             initial={{ opacity: 0, x: 50 }}
             animate={isInView ? { opacity: 1, x: 0 } : {}}
