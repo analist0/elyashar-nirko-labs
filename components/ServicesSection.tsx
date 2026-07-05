@@ -11,6 +11,7 @@ import {
   LineChart,
   ArrowLeft,
   CheckCircle2,
+  Users,
 } from 'lucide-react'
 
 function notifyLead(source: string) {
@@ -62,7 +63,7 @@ const services: Service[] = [
     title: 'בוטים ואוטומציה',
     description: 'בניית בוטים חכמים לטלגרם, וואטסאפ, דיסקורד ואוטומציה של תהליכים עסקיים.',
     features: [
-      'צ\'אטבוטים מתקדמים',
+      "צ'אטבוטים מתקדמים",
       'אוטומציית תהליכים',
       'אינטגרציות API',
       'RPA - רובוטיזציה',
@@ -83,13 +84,13 @@ const services: Service[] = [
   },
   {
     icon: Rocket,
-    title: 'DevOps & Cloud',
+    title: 'DevOps \u0026 Cloud',
     description: 'תשתיות ענן, CI/CD, קונטיינריזציה וניטור - הכל לפריסה מהירה ובטוחה.',
     features: [
       'AWS / GCP / Azure',
-      'Docker & Kubernetes',
+      'Docker \u0026 Kubernetes',
       'CI/CD Pipelines',
-      'Monitoring & Logging',
+      'Monitoring \u0026 Logging',
     ],
     color: 'from-yellow-600 to-orange-600',
   },
@@ -101,7 +102,7 @@ const services: Service[] = [
       'ETL / ELT Pipelines',
       'Data Warehousing',
       'Real-time Streaming',
-      'BI & Dashboards',
+      'BI \u0026 Dashboards',
     ],
     color: 'from-pink-600 to-rose-600',
   },
@@ -197,7 +198,7 @@ export default function ServicesSection() {
             פתרונות טכנולוגיים <span className="gradient-text">מקצה לקצה</span>
           </h2>
           <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto text-lg">
-            משלב הרעיון ועד הפרודקשן - מספק שירותים מקיפים בהתאמה אישית לצרכים שלך
+            משלב הרעיון ועד הפרודקשן - צוות Elyashar & Nirko מספק שירותים מקיפים בהתאמה אישית לצרכים שלך
           </p>
         </motion.div>
 
@@ -221,13 +222,13 @@ export default function ServicesSection() {
               <p className="text-gray-600 dark:text-gray-400 text-sm">אשמח לשמוע על הפרויקט שלך</p>
             </div>
             <motion.a
-              href="tel:0584423342"
+              href="/#contact"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => notifyLead('services-phone-cta')}
+              onClick={() => notifyLead('services-contact-cta')}
               className="px-6 py-3 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-full text-white font-medium whitespace-nowrap"
             >
-              התקשר עכשיו: 058-442-3342
+              צור קשר עכשיו
             </motion.a>
           </div>
         </motion.div>

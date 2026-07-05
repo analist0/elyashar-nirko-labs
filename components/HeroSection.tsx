@@ -2,26 +2,15 @@
 
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { useEffect, useState, useRef } from 'react'
-import { Sparkles, Code2, Brain, Cpu, ChevronDown, Zap } from 'lucide-react'
+import { Sparkles, Code2, Brain, Cpu, ChevronDown, Zap, Users } from 'lucide-react'
 import { useTheme } from '../src/context/ThemeContext'
 
-function notifyLead(source: string) {
-  const apiBase = process.env.NEXT_PUBLIC_AGENT_URL?.replace('/chat', '') || 'http://localhost:3004'
-  fetch(`${apiBase}/lead`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ source }),
-  }).catch(() => {
-    // silently fail
-  })
-}
-
 const roles = [
-  'מפתח AI',
-  'Full-Stack Developer',
-  'בונה בוטים',
-  'מומחה אוטומציה',
-  'יועץ טכנולוגי',
+  'מפתחי AI',
+  'Full-Stack Developers',
+  'בוני בוטים',
+  'מומחי אוטומציה',
+  'יועצים טכנולוגיים',
 ]
 
 function ParticleBackground() {
@@ -49,7 +38,7 @@ function ParticleBackground() {
       alpha: number
     }> = []
 
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 100; i++) {
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
@@ -228,8 +217,8 @@ export default function HeroSection() {
           transition={{ duration: 0.6 }}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8"
         >
-          <Sparkles className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />
-          <span className="text-sm text-gray-600 dark:text-gray-300">זמין לפרויקטים חדשים</span>
+          <Users className="w-4 h-4 text-cyan-400" />
+          <span className="text-sm text-gray-600 dark:text-gray-300">שותפים בפיתוח טכנולוגי</span>
           <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
         </motion.div>
 
@@ -240,7 +229,7 @@ export default function HeroSection() {
           transition={{ duration: 0.6, delay: 0.1 }}
           className="text-5xl md:text-7xl lg:text-8xl font-black mb-6"
         >
-          <span className="block text-gray-900 dark:text-white mb-2">יוסף אלישר</span>
+          <span className="block text-gray-900 dark:text-white mb-2">Elyashar & Nirko</span>
           <span className="block text-3xl md:text-4xl lg:text-5xl font-bold">
             <TypingAnimation />
           </span>
@@ -253,10 +242,10 @@ export default function HeroSection() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-xl md:text-2xl text-gray-600 dark:text-gray-400 mb-8 max-w-3xl mx-auto leading-relaxed"
         >
-          הופך רעיונות למציאות דיגיטלית עם AI מתקדם, קוד איכותי וחשיבה יצירתית.
+          שותפות טכנולוגית של שני מפתחי Full-Stack ו-AI מובילים.
           <br />
           <span className="text-cyan-600 dark:text-cyan-400 font-medium">
-            מעל 10 שנות ניסיון בבניית פתרונות טכנולוגיים מורכבים.
+            מעל 20 שנות ניסיון משולב בבניית פתרונות טכנולוגיים מורכבים.
           </span>
         </motion.p>
 
@@ -268,7 +257,7 @@ export default function HeroSection() {
           className="flex flex-wrap justify-center gap-4 mb-12"
         >
           {[
-            { icon: Brain, label: 'AI & ML' },
+            { icon: Brain, label: 'AI \u0026 ML' },
             { icon: Code2, label: 'Full-Stack' },
             { icon: Cpu, label: 'DevOps' },
             { icon: Zap, label: 'אוטומציה' },
@@ -315,31 +304,14 @@ export default function HeroSection() {
           </motion.a>
 
           <motion.a
-            href="tel:0584423342"
+            href="/#contact"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => notifyLead('hero-phone')}
             className="px-8 py-4 glass rounded-full font-bold text-gray-800 dark:text-white hover:bg-white/10 transition-colors"
           >
-            058-442-3342
+            צור קשר
           </motion.a>
         </motion.div>
-
-        {/* Email */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="mt-6 text-gray-500"
-        >
-          <a
-            href="mailto:Jelyashar@gmail.com"
-            onClick={() => notifyLead('hero-email')}
-            className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
-          >
-            Jelyashar@gmail.com
-          </a>
-        </motion.p>
       </motion.div>
 
       {/* Scroll Indicator */}

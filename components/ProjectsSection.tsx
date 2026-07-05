@@ -20,7 +20,7 @@ interface Project {
 const projects: Project[] = [
   {
     title: 'AI Agent Platform',
-    description: 'פלטפורמת אייג׳נטים חכמים שמבצעים משימות אוטונומיות - מניתוח נתונים ועד אוטומציה של תהליכים עסקיים מורכבים.',
+    description: 'פלטפורמת אייג\'נטים חכמים שמבצעים משימות אוטונומיות - מניתוח נתונים ועד אוטומציה של תהליכים עסקיים מורכבים.',
     image: '/projects/ai-agent.jpg',
     tags: ['Python', 'LangChain', 'OpenAI', 'FastAPI', 'React'],
     icon: Bot,
@@ -182,7 +182,7 @@ export default function ProjectsSection() {
             פרויקטים שמדברים ב<span className="gradient-text">קוד</span>
           </h2>
           <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto text-lg">
-            כל פרויקט הוא סיפור של אתגר טכנולוגי, פתרון יצירתי, ותוצאה מרשימה
+            כל פרויקט הוא סיפור של אתגר טכנולוגי, פתרון יצירתי, ותוצאה מרשימה — פיתוח משותף של Elyashar & Nirko
           </p>
         </motion.div>
 

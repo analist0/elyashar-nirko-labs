@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X, Brain, Cpu } from 'lucide-react'
+import { Menu, X, Brain, Cpu, Users } from 'lucide-react'
 import Link from 'next/link'
 import ThemeToggle from './ThemeToggle'
 
 const navItems = [
   { name: 'ראשי', href: '/#hero' },
+  { name: 'הצוות', href: '/#team' },
   { name: 'בלוג', href: '/blog' },
   { name: 'פרויקטים', href: '/#projects' },
   { name: 'שירותים', href: '/#services' },
@@ -34,20 +35,23 @@ export default function Navigation() {
         animate={{ y: 0 }}
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           scrolled 
-            ? 'glass py-3 shadow-lg' 
+            ? 'glass py-3 shadow-lg backdrop-blur-xl bg-black/60' 
             : 'bg-transparent py-5'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             {/* Logo */}
-            <Link href="/#hero" className="flex items-center gap-2">
-              <motion.div whileHover={{ scale: 1.05 }}>
+            <Link href="/#hero" className="flex items-center gap-3">
+              <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-2">
                 <div className="relative">
-                  <Brain className="w-8 h-8 text-purple-500" />
-                  <Cpu className="w-4 h-4 text-cyan-400 absolute -bottom-1 -right-1" />
+                  <Users className="w-8 h-8 text-cyan-400" />
+                  <Brain className="w-4 h-4 text-purple-400 absolute -bottom-1 -right-1" />
                 </div>
-                <span className="text-xl font-bold gradient-text">JE</span>
+                <div className="flex flex-col">
+                  <span className="text-xl font-bold gradient-text leading-tight">E & N Labs</span>
+                  <span className="text-[10px] text-gray-400 -mt-1">Elyashar & Nirko</span>
+                </div>
               </motion.div>
             </Link>
 
@@ -66,18 +70,17 @@ export default function Navigation() {
                 </Link>
               ))}
 
-              {/* Theme Toggle */}
               <div className="mr-4">
                 <ThemeToggle />
               </div>
 
               <motion.a
-                href="tel:0584423342"
+                href="/#contact"
                 className="btn-primary px-6 py-2 rounded-full text-white font-medium"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                דברו איתי
+                דברו איתנו
               </motion.a>
             </div>
 
@@ -122,14 +125,14 @@ export default function Navigation() {
                 </Link>
               ))}
               <motion.a
-                href="tel:0584423342"
+                href="/#contact"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
                 className="btn-primary px-8 py-3 rounded-full text-white font-bold mt-4"
                 onClick={() => setIsOpen(false)}
               >
-                058-442-3342
+                צור קשר
               </motion.a>
             </div>
           </motion.div>

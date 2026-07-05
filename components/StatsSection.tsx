@@ -2,7 +2,7 @@
 
 import { motion, useInView } from 'framer-motion'
 import { useRef, useEffect, useState } from 'react'
-import { Briefcase, Users, Code2, Award } from 'lucide-react'
+import { Briefcase, Users, Code2, Award, Clock, Trophy } from 'lucide-react'
 
 interface StatItemProps {
   icon: React.ElementType
@@ -75,10 +75,12 @@ function StatCard({ icon: Icon, value, suffix, label, delay }: StatItemProps) {
 
 export default function StatsSection() {
   const stats = [
-    { icon: Briefcase, value: 50, suffix: '+', label: 'פרויקטים שהושלמו' },
-    { icon: Users, value: 30, suffix: '+', label: 'לקוחות מרוצים' },
-    { icon: Code2, value: 100, suffix: 'K+', label: 'שורות קוד' },
-    { icon: Award, value: 10, suffix: '+', label: 'שנות ניסיון' },
+    { icon: Briefcase, value: 120, suffix: '+', label: 'פרויקטים שהושלמו' },
+    { icon: Users, value: 80, suffix: '+', label: 'לקוחות מרוצים' },
+    { icon: Code2, value: 250, suffix: 'K+', label: 'שורות קוד' },
+    { icon: Award, value: 20, suffix: '+', label: 'שנות ניסיון משולב' },
+    { icon: Clock, value: 99, suffix: '%', label: 'זמינות לפרויקטים' },
+    { icon: Trophy, value: 100, suffix: '%', label: 'מחויבות לתוצאות' },
   ]
 
   return (
@@ -102,17 +104,17 @@ export default function StatsSection() {
             viewport={{ once: true }}
             className="inline-block px-4 py-1 rounded-full bg-purple-600/20 text-purple-600 dark:text-purple-400 text-sm font-medium mb-4"
           >
-            הסיפור שלי במספרים
+            ההישגים שלנו במספרים
           </motion.span>
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
             תוצאות ש<span className="gradient-text">מדברות</span> בעד עצמן
           </h2>
           <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            כל מספר מייצג שעות של עבודה, לימוד והתמדה במטרה לספק את הטוב ביותר
+            כל מספר מייצג שעות של עבודה משותפת, לימוד והתמדה במטרה לספק את הטוב ביותר
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
           {stats.map((stat, index) => (
             <StatCard
               key={stat.label}

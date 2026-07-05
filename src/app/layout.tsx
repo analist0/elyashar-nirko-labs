@@ -3,19 +3,19 @@ import './globals.css'
 import { ThemeProvider } from '../context/ThemeContext'
 
 export const metadata: Metadata = {
-  title: 'Joseph Elyashar | AI & Full-Stack Developer',
-  description: 'יוסף אלישר - מומחה AI, פיתוח Full-Stack, בוטים, אוטומציה ופתרונות טכנולוגיים מתקדמים. 058-442-3342',
-  keywords: 'AI, Machine Learning, Full-Stack, Python, React, Node.js, Automation, יוסף אלישר',
+  title: 'Elyashar & Nirko | AI & Full-Stack Development Partners',
+  description: 'יוסף אלישר ומיכאל נירקו - צוות פיתוח AI ו-Full-Stack מוביל. בניית אפליקציות AI, אתרי תדמית, מערכות Full-Stack, אוטומציה וייעוץ טכנולוגי.',
+  keywords: 'AI, Machine Learning, Full-Stack, Python, React, Node.js, Automation, יוסף אלישר, מיכאל נירקו, Elyashar Nirko',
   openGraph: {
     locale: 'he_IL',
-    siteName: 'ElyasharLabs',
+    siteName: 'Elyashar & Nirko Labs',
     type: 'website',
   },
   icons: {
     icon: '/favicon.ico',
   },
   alternates: {
-    canonical: 'https://elyasharlabs.com/',
+    canonical: 'https://elyashar-nirko.dev/',
   },
 }
 

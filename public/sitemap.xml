@@ -11,6 +11,12 @@
     <changefreq>daily</changefreq>
   </url>
   <url>
+    <loc>https://elyasharlabs.com/blog/flutter-1778392389598/</loc>
+    <lastmod>2026-05-10</lastmod>
+    <priority>0.8</priority>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
     <loc>https://elyasharlabs.com/blog/claw-code-1778175403657/</loc>
     <lastmod>2026-05-07</lastmod>
     <priority>0.8</priority>

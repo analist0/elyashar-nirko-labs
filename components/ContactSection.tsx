@@ -9,14 +9,14 @@ import {
   Send,
   Linkedin,
   Github,
-  Twitter,
   MessageCircle,
   Clock,
   Sparkles,
   ArrowLeft,
+  Users,
 } from 'lucide-react'
 
-const contactInfo = [
+const josephContact = [
   {
     icon: Phone,
     label: 'טלפון',
@@ -32,25 +32,41 @@ const contactInfo = [
     color: 'from-blue-500 to-cyan-500',
   },
   {
-    icon: MapPin,
-    label: 'מיקום',
-    value: 'ישראל',
-    href: '#',
-    color: 'from-purple-500 to-pink-500',
+    icon: MessageCircle,
+    label: 'טלגרם',
+    value: 'יוסף אלישר בטלגרם',
+    href: 'https://t.me/joseph_elyashar',
+    color: 'from-blue-400 to-cyan-400',
+  },
+]
+
+const michaelContact = [
+  {
+    icon: Phone,
+    label: 'טלפון',
+    value: '052-827-7544',
+    href: 'tel:0528277544',
+    color: 'from-green-500 to-emerald-500',
   },
   {
-    icon: Clock,
-    label: 'זמינות',
-    value: '7 ימים בשבוע',
-    href: '#',
-    color: 'from-orange-500 to-red-500',
+    icon: Mail,
+    label: 'אימייל',
+    value: 'michael.nirko@email.com',
+    href: 'mailto:michael.nirko@email.com',
+    color: 'from-blue-500 to-cyan-500',
+  },
+  {
+    icon: MessageCircle,
+    label: 'טלגרם',
+    value: 'מיכאל נירקו בטלגרם',
+    href: 'https://t.me/michael_nirko',
+    color: 'from-blue-400 to-cyan-400',
   },
 ]
 
 const socialLinks = [
-  { icon: Github, href: 'https://github.com', label: 'GitHub' },
-  { icon: Linkedin, href: 'https://linkedin.com', label: 'LinkedIn' },
-  { icon: Twitter, href: 'https://twitter.com', label: 'Twitter' },
+  { icon: Github, href: 'https://github.com/josephelyashar', label: 'GitHub' },
+  { icon: Linkedin, href: 'https://linkedin.com/in/josephelyashar', label: 'LinkedIn' },
 ]
 
 export default function ContactSection() {
@@ -82,7 +98,7 @@ export default function ContactSection() {
         }),
       })
     } catch {
-      // silently fail — user experience is priority
+      // silently fail
     }
 
     setIsSubmitting(false)
@@ -107,14 +123,15 @@ export default function ContactSection() {
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           className="text-center mb-16"
         >
-          <span className="inline-block px-4 py-1 rounded-full bg-purple-600/20 text-purple-600 dark:text-purple-400 text-sm font-medium mb-4">
+          <span className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-purple-600/20 text-purple-600 dark:text-purple-400 text-sm font-medium mb-4">
+            <Users className="w-4 h-4" />
             בוא נדבר
           </span>
           <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
             יש לך רעיון? <span className="gradient-text">בוא נבנה אותו</span>
           </h2>
           <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto text-lg">
-            מוכן לשמוע על הפרויקט שלך ולהפוך אותו למציאות
+            מוכנים לשמוע על הפרויקט שלך ולהפוך אותו למציאות — Elyashar & Nirko Labs
           </p>
         </motion.div>
 
@@ -138,7 +155,7 @@ export default function ContactSection() {
                   <Sparkles className="w-8 h-8 text-green-500" />
                 </div>
                 <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2">ההודעה נשלחה!</h4>
-                <p className="text-gray-600 dark:text-gray-400">אחזור אליך בהקדם האפשרי</p>
+                <p className="text-gray-600 dark:text-gray-400">נחזור אליך בהקדם האפשרי</p>
               </motion.div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -186,7 +203,7 @@ export default function ContactSection() {
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all resize-none"
-                    placeholder="תספר לי על הפרויקט שלך..."
+                    placeholder="תספר לנו על הפרויקט שלך..."
                   />
                 </div>
 
@@ -221,51 +238,119 @@ export default function ContactSection() {
             transition={{ delay: 0.3 }}
             className="space-y-6"
           >
-            {/* Quick Contact Cards */}
-            <div className="grid grid-cols-2 gap-4">
-              {contactInfo.map((info, index) => (
-                <motion.a
-                  key={info.label}
-                  href={info.href}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={isInView ? { opacity: 1, y: 0 } : {}}
-                  transition={{ delay: 0.4 + index * 0.1 }}
-                  whileHover={{ scale: 1.05, y: -5 }}
-                  className="glass rounded-xl p-6 border border-gray-200 dark:border-white/10 hover:border-purple-500/30 transition-all group"
-                >
-                  <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${info.color} mb-3 group-hover:scale-110 transition-transform`}>
-                    <info.icon className="w-5 h-5 text-white" />
-                  </div>
-                  <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">{info.label}</p>
-                  <p className="text-gray-900 dark:text-white font-medium text-sm">{info.value}</p>
-                </motion.a>
-              ))}
-            </div>
+            {/* Joseph Contact Cards */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ delay: 0.4 }}
+              className="glass rounded-2xl p-6 border border-gray-200 dark:border-white/10"
+            >
+              <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white text-sm font-bold">JE</span>
+                יוסף אלישר
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {josephContact.map((info, index) => (
+                  <motion.a
+                    key={info.label}
+                    href={info.href}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={isInView ? { opacity: 1, y: 0 } : {}}
+                    transition={{ delay: 0.5 + index * 0.1 }}
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors group"
+                  >
+                    <div className={`inline-flex p-2 rounded-lg bg-gradient-to-br ${info.color}`}>
+                      <info.icon className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{info.label}</p>
+                      <p className="text-sm text-gray-900 dark:text-white font-medium truncate">{info.value}</p>
+                    </div>
+                  </motion.a>
+                ))}
+              </div>
+            </motion.div>
 
-            {/* WhatsApp CTA */}
+            {/* Michael Contact Cards */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ delay: 0.6 }}
+              className="glass rounded-2xl p-6 border border-gray-200 dark:border-white/10"
+            >
+              <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center text-white text-sm font-bold">MN</span>
+                מיכאל נירקו
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {michaelContact.map((info, index) => (
+                  <motion.a
+                    key={info.label}
+                    href={info.href}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={isInView ? { opacity: 1, y: 0 } : {}}
+                    transition={{ delay: 0.7 + index * 0.1 }}
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors group"
+                  >
+                    <div className={`inline-flex p-2 rounded-lg bg-gradient-to-br ${info.color}`}>
+                      <info.icon className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{info.label}</p>
+                      <p className="text-sm text-gray-900 dark:text-white font-medium truncate">{info.value}</p>
+                    </div>
+                  </motion.a>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* WhatsApp CTA - Joseph */}
             <motion.a
               href="https://wa.me/972584423342"
               target="_blank"
               rel="noopener noreferrer"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="block p-6 rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 text-white"
+              className="block p-4 rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 text-white"
             >
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-white/20">
-                  <MessageCircle className="w-8 h-8" />
+                <div className="p-2 rounded-full bg-white/20">
+                  <MessageCircle className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-lg">דברו איתי בוואטסאפ</h4>
-                  <p className="text-white/80 text-sm">תשובה מהירה בדרך כלל תוך שעות</p>
+                  <h4 className="font-bold">יוסף אלישר - וואטסאפ</h4>
+                  <p className="text-white/80 text-sm">058-442-3342 — תשובה מהירה</p>
                 </div>
-                <ArrowLeft className="w-6 h-6 mr-auto" />
+                <ArrowLeft className="w-5 h-5 mr-auto" />
+              </div>
+            </motion.a>
+
+            {/* WhatsApp CTA - Michael */}
+            <motion.a
+              href="https://wa.me/972528277544"
+              target="_blank"
+              rel="noopener noreferrer"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="block p-4 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-2 rounded-full bg-white/20">
+                  <MessageCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-bold">מיכאל נירקו - וואטסאפ</h4>
+                  <p className="text-white/80 text-sm">052-827-7544 — תשובה מהירה</p>
+                </div>
+                <ArrowLeft className="w-5 h-5 mr-auto" />
               </div>
             </motion.a>
 
             {/* Social Links */}
             <div className="glass rounded-xl p-6 border border-gray-200 dark:border-white/10">
-              <h4 className="text-gray-900 dark:text-white font-medium mb-4">עקבו אחריי</h4>
+              <h4 className="text-gray-900 dark:text-white font-medium mb-4">עקבו אחרינו</h4>
               <div className="flex gap-3">
                 {socialLinks.map((social) => (
                   <motion.a
@@ -296,7 +381,7 @@ export default function ContactSection() {
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
               </span>
               <p className="text-green-600 dark:text-green-400 text-sm">
-                זמין לפרויקטים חדשים - צ\'אטבוטים, AI, אוטומציה ועוד
+                זמינים לפרויקטים חדשים — צ'אטבוטים, AI, אוטומציה ועוד
               </p>
             </motion.div>
           </motion.div>
@@ -308,11 +393,11 @@ export default function ContactSection() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-center md:text-right">
-              <p className="text-gray-900 dark:text-white font-bold text-lg">יוסף אלישר</p>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">AI & Full-Stack Developer</p>
+              <p className="text-gray-900 dark:text-white font-bold text-lg">Elyashar & Nirko Labs</p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">AI & Full-Stack Development Partners</p>
             </div>
             <p className="text-gray-500 text-sm">
-              © 2024 כל הזכויות שמורות
+              © {new Date().getFullYear()} כל הזכויות שמורות
             </p>
             <div className="flex items-center gap-2 text-gray-500 text-sm">
               <span>נבנה עם</span>
