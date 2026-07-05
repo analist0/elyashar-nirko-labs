@@ -9,7 +9,7 @@ import ServicesSection from '../../components/ServicesSection'
 import SkillsSection from '../../components/SkillsSection'
 import ContactSection from '../../components/ContactSection'
 import Navigation from '../../components/Navigation'
-import SalesAgent from '../../components/SalesAgent'
+import TelegramChatWidget from '../../components/TelegramChatWidget'
 
 const localBusinessJsonLd = {
   '@context': 'https://schema.org',
@@ -166,7 +166,7 @@ export default function Home() {
         <ServicesSection />
         <SkillsSection />
         <ContactSection />
-        <SalesAgent />
+        <TelegramChatWidget />
       </main>
     </>
   )
