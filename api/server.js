@@ -13,6 +13,8 @@ const { URL } = require('url')
 const crypto = require('crypto')
 const { spawn } = require('child_process')
 const { resolveAdminCredentials } = require('./lib/adminAuth')
+const { resolveTelegramRecipients, filterRecipientsByTarget } = require('./lib/telegramRecipients')
+const { sanitizeText, escapeHtml, clampLength } = require('./lib/sanitize')
 
 const PORT = 3004
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || ''
@@ -189,41 +191,6 @@ function cleanupRateLimits() {
   }
 }
 
-/* ─── Input Sanitization ─── */
-const DANGEROUS_PATTERNS = [
-  /<script[^>]*>.*?<\/script>/gi,
-  /<script[^>]*\/>/gi,
-  /javascript:/gi,
-  /on\w+\s*=/gi,
-  /<iframe/gi,
-  /<object/gi,
-  /<embed/gi,
-]
-
-function sanitizeText(input) {
-  if (typeof input !== 'string') return ''
-  let cleaned = input
-  for (const pattern of DANGEROUS_PATTERNS) {
-    cleaned = cleaned.replace(pattern, '')
-  }
-  return cleaned.trim()
-}
-
-function escapeHtml(input) {
-  if (typeof input !== 'string') return ''
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-function clampLength(input, maxLen) {
-  if (typeof input !== 'string') return ''
-  return input.slice(0, maxLen).trim()
-}
-
 /* ─── Comments Store ─── */
 const COMMENTS_DIR = path.join(__dirname, '..', 'content', 'comments')
 
@@ -306,6 +273,20 @@ async function sendTelegram(text) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'HTML' }),
   }).catch(err => console.error('Telegram error:', err))
+}
+
+// Sends to every configured recipient (see api/lib/telegramRecipients.js) —
+// used by the site chat widget so bot tokens never reach the client bundle.
+async function sendTelegramToAll(recipients, text) {
+  await Promise.all(
+    recipients.map(({ token, chatId }) =>
+      fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+      }).catch(err => console.error('Telegram error:', err))
+    )
+  )
 }
 
 function formatTelegram(messages, agentReply, sessionId) {
@@ -679,7 +660,7 @@ const server = http.createServer((req, res) => {
     return serveJson(res, 200, {
       service: 'ElyasharLabs Sales Agent API',
       status: 'ok',
-      endpoints: ['/chat', '/messages/:sessionId', '/webhook', '/health', '/admin/*', '/comments/:slug'],
+      endpoints: ['/chat', '/widget-message', '/messages/:sessionId', '/webhook', '/health', '/admin/*', '/comments/:slug', '/lead'],
       model: OLLAMA_MODEL,
       sessions: sessions.size,
     })
@@ -695,7 +676,7 @@ const server = http.createServer((req, res) => {
     return serveJson(res, 200, {
       status: 'ok',
       message: 'Sales Agent API — use POST with JSON body { messages: [{role,content}], sessionId }',
-      endpoints: ['/chat', '/messages/:sessionId', '/webhook', '/health', '/admin/*', '/comments/:slug', '/lead'],
+      endpoints: ['/chat', '/widget-message', '/messages/:sessionId', '/webhook', '/health', '/admin/*', '/comments/:slug', '/lead'],
       model: OLLAMA_MODEL,
       sessions: sessions.size,
     })
@@ -724,6 +705,60 @@ const server = http.createServer((req, res) => {
       console.log('📱 Lead notification sent from:', source)
 
       return serveJson(res, 200, { ok: true, message: 'Lead captured' })
+    })
+  }
+
+  // Site chat widget + contact form (components/TelegramChatWidget.tsx,
+  // components/ContactSection.tsx) — notifies configured recipient(s), all of
+  // them by default or a single one via `target` (matched against each
+  // recipient's `id` in TELEGRAM_RECIPIENTS). Bot tokens live only in
+  // TELEGRAM_RECIPIENTS / TELEGRAM_BOT_TOKEN env vars here, never in
+  // client-side code — that ships to every visitor's browser as plain text.
+  if (pathname === '/widget-message' && req.method === 'POST') {
+    return parseBody(req, async (err, body) => {
+      if (err) return serveJson(res, 400, { error: 'Invalid JSON' })
+
+      const clientIp = getClientIp(req)
+      if (isRateLimitedChat(clientIp)) {
+        return serveJson(res, 429, { error: 'Too many requests. Please wait a moment.' })
+      }
+
+      let { name = '', email = '', phone = '', text = '', target = '', source = 'chat' } = body || {}
+      name = clampLength(sanitizeText(name), 100)
+      email = clampLength(sanitizeText(email), 254)
+      phone = clampLength(sanitizeText(phone), 30)
+      text = clampLength(sanitizeText(text), 2000)
+      target = clampLength(sanitizeText(target), 30)
+
+      if (!text) {
+        return serveJson(res, 400, { error: 'Message text is required' })
+      }
+
+      const allRecipients = resolveTelegramRecipients()
+      if (allRecipients.length === 0) {
+        console.warn('⚠️  /widget-message: no Telegram recipients configured')
+        return serveJson(res, 503, { error: 'Chat notifications are not configured' })
+      }
+      const recipients = filterRecipientsByTarget(allRecipients, target)
+
+      const heading = source === 'contact-form' ? 'הודעה חדשה מטופס צור קשר' : 'הודעה חדשה מהאתר'
+      const telegramMsg = [
+        `🔔 <b>${heading}</b>`,
+        `<b>מאת:</b> ${escapeHtml(name) || 'אורח'}`,
+        email ? `<b>אימייל:</b> ${escapeHtml(email)}` : '',
+        phone ? `<b>טלפון:</b> ${escapeHtml(phone)}` : '',
+        '',
+        '💬 <b>תוכן:</b>',
+        escapeHtml(text),
+        '',
+        '<i>נשלח מ- Elyashar & Nirko Labs</i>',
+      ]
+        .filter(Boolean)
+        .join('\n')
+
+      await sendTelegramToAll(recipients, telegramMsg)
+
+      return serveJson(res, 200, { ok: true })
     })
   }
 

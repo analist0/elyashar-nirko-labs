@@ -18,18 +18,13 @@ import {
   Check,
 } from 'lucide-react'
 
-// Telegram bot configs for each partner
-const MICHAEL_BOT = {
-  token: '8806963305:***',
-  chatId: '1799616677',
-  name: 'מיכאל נירקו',
-}
-
-const JOSEPH_BOT = {
-  token: '7934154320:***',
-  chatId: '6457374757',
-  name: 'יוסף אלישר',
-}
+// Messages are relayed through the backend's /widget-message endpoint
+// (api/server.js), which holds the Telegram bot tokens server-side. They must
+// never live here — this file ships as plain text in the public JS bundle.
+// `target` matches a recipient's `id` in the server's TELEGRAM_RECIPIENTS env
+// var ("joseph" / "michael"); "both" notifies everyone configured.
+const AGENT_URL = process.env.NEXT_PUBLIC_AGENT_URL || ''
+const WIDGET_MESSAGE_URL = AGENT_URL ? AGENT_URL.replace(/\/chat\/?$/, '/widget-message') : ''
 
 const josephContact = [
   {
@@ -84,18 +79,27 @@ const socialLinks = [
   { icon: Linkedin, href: 'https://linkedin.com/in/josephelyashar', label: 'LinkedIn' },
 ]
 
-async function sendTelegramMessage(token: string, chatId: string, text: string) {
-  const params = new URLSearchParams()
-  params.append('chat_id', chatId)
-  params.append('text', text)
-  params.append('parse_mode', 'HTML')
-
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+async function sendContactMessage(target: string, data: {
+  name: string
+  email: string
+  phone: string
+  message: string
+}) {
+  if (!WIDGET_MESSAGE_URL) throw new Error('Agent URL not configured')
+  const res = await fetch(WIDGET_MESSAGE_URL, {
     method: 'POST',
-    body: params,
-    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      text: data.message,
+      target,
+      source: 'contact-form',
+    }),
   })
-  return response
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res
 }
 
 function checkRateLimit(): boolean {
@@ -149,30 +153,13 @@ export default function ContactSection() {
 
     setIsSubmitting(true)
 
-    const telegramText = [
-      `<b>🔔 הודעה חדשה מטופס צור קשר</b>`,
-      `<b>שותף נבחר:</b> ${formData.partner === 'joseph' ? 'יוסף אלישר' : formData.partner === 'michael' ? 'מיכאל נירקו' : 'שני השותפים'}`,
-      ``,
-      `<b>שם:</b> ${formData.name || 'לא צוין'}`,
-      `<b>אימייל:</b> ${formData.email || 'לא צוין'}`,
-      `<b>טלפון:</b> ${formData.phone || 'לא צוין'}`,
-      ``,
-      `<b>💬 הודעה:</b>`,
-      formData.message,
-      ``,
-      `<i>נשלח מ- Elyashar & Nirko Labs Contact Form</i>`,
-    ].join('\n')
-
     try {
-      const targets = []
-      if (formData.partner === 'joseph' || formData.partner === 'both') {
-        targets.push(sendTelegramMessage(JOSEPH_BOT.token, JOSEPH_BOT.chatId, telegramText))
-      }
-      if (formData.partner === 'michael' || formData.partner === 'both') {
-        targets.push(sendTelegramMessage(MICHAEL_BOT.token, MICHAEL_BOT.chatId, telegramText))
-      }
-
-      await Promise.all(targets)
+      await sendContactMessage(formData.partner, {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        message: formData.message,
+      })
 
       setIsSubmitting(false)
       setSubmitted(true)

@@ -4,18 +4,11 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, X, Send, Bot } from 'lucide-react'
 
-// Telegram configs - both bots send to their respective owners
-const MICHAEL_BOT = {
-  token: '8806963305:AAFyKZs2ikRZuI3A8CyvxK5EJ6fHybHPyQA',
-  chatId: '1799616677',
-  name: 'מיכאל נירקו',
-}
-
-const JOSEPH_BOT = {
-  token: '7934154320:AAGlMhNWAaSEIimUJg1N-rRre2WxkTFrAx8',
-  chatId: '6457374757',
-  name: 'יוסף אלישר',
-}
+// Messages are relayed through the backend's /widget-message endpoint
+// (api/server.js), which holds the Telegram bot tokens server-side. They must
+// never live here — this file ships as plain text in the public JS bundle.
+const AGENT_URL = process.env.NEXT_PUBLIC_AGENT_URL || ''
+const WIDGET_MESSAGE_URL = AGENT_URL ? AGENT_URL.replace(/\/chat\/?$/, '/widget-message') : ''
 
 interface ChatMessage {
   id: string
@@ -29,20 +22,15 @@ function generateId() {
   return Math.random().toString(36).substring(2, 10)
 }
 
-async function sendTelegramMessage(token: string, chatId: string, text: string) {
-  const url = `https://api.telegram.org/bot${token}/sendMessage`
-  const params = new URLSearchParams()
-  params.append('chat_id', chatId)
-  params.append('text', text)
-  params.append('parse_mode', 'HTML')
-
-  // Use no-cors because Telegram API doesn't send CORS headers for public requests
-  const response = await fetch(url, {
+async function sendWidgetMessage(name: string, email: string, text: string) {
+  if (!WIDGET_MESSAGE_URL) throw new Error('Agent URL not configured')
+  const res = await fetch(WIDGET_MESSAGE_URL, {
     method: 'POST',
-    body: params,
-    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, text }),
   })
-  return response
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res
 }
 
 export default function TelegramChatWidget() {
@@ -115,24 +103,8 @@ export default function TelegramChatWidget() {
     setInputText('')
     setIsSending(true)
 
-    // Format message for Telegram
-    const telegramText = [
-      `<b>🔔 הודעה חדשה מהאתר</b>`,
-      `<b>מאת:</b> ${userName || 'אורח'}`,
-      userEmail ? `<b>אימייל:</b> ${userEmail}` : '',
-      '',
-      `<b>💬 תוכן:</b>`,
-      text,
-      '',
-      `<i>נשלח מ- Elyashar & Nirko Labs Chat</i>`,
-    ].join('\n')
-
     try {
-      // Send to both partners simultaneously
-      await Promise.all([
-        sendTelegramMessage(MICHAEL_BOT.token, MICHAEL_BOT.chatId, telegramText),
-        sendTelegramMessage(JOSEPH_BOT.token, JOSEPH_BOT.chatId, telegramText),
-      ])
+      await sendWidgetMessage(userName, userEmail, text)
 
       setMessages(prev =>
         prev.map(m => (m.id === msgId ? { ...m, status: 'sent' as const } : m))

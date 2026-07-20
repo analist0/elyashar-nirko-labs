@@ -28,7 +28,7 @@ This repo is **two runtime pieces deployed independently**, not a single app:
 
 - `src/app/page.tsx` assembles the home page from self-contained `'use client'` section components in `components/` (Hero, Services, Skills, Projects, Team, Stats, Contact, Navigation).
 - Theme (dark/light) flows through `src/context/ThemeContext.tsx`; dark is the default to avoid flash-of-wrong-theme.
-- `components/SalesAgent.tsx` and `components/TelegramChatWidget.tsx` are the chat widgets — they call the API backend (`NEXT_PUBLIC_AGENT_URL`, default `.../chat`) directly from the client, session-scoped via `sessionId` in localStorage.
+- `components/TelegramChatWidget.tsx` (chat bubble) and `components/ContactSection.tsx` (contact form) both POST to the API backend's `/widget-message` (derived from `NEXT_PUBLIC_AGENT_URL` by swapping `/chat` for `/widget-message`) rather than calling the Telegram Bot API directly — bot tokens must stay server-side (`api/lib/telegramRecipients.js`), never in client code, which ships as plain text to every visitor.
 - `components/CommentsSection.tsx` reads/writes via the API backend's `/comments/:slug` endpoints (file-backed, not build-time).
 - `components/CanvasBlockEditor.tsx` / `CanvasBlockRenderer.tsx` render/edit the rich "block" content format used by generated blog posts (mixed HTML sections + per-section images), used by both the blog detail page and the admin CMS editor. Post HTML is LLM-generated and admin-editable, so `CanvasBlockRenderer` runs every block through `src/lib/sanitizeHtml.ts` (DOMPurify, tag/attribute allowlist) before any `dangerouslySetInnerHTML` — code blocks are rendered as plain text instead, never as HTML. Extend the allowlist there (not ad hoc per call site) if a new block type needs a new tag/attribute.
 - `src/app/admin/page.tsx` is a client-side CMS UI (posts, topics, comments, logs, pipeline trigger, settings) that talks to `api/server.js`'s `/admin/*` routes, which are Basic-Auth protected (`ADMIN_USER`/`ADMIN_PASS`, resolved by `api/lib/adminAuth.js` — **the server refuses to start** with `NODE_ENV=production` unless both are set; no insecure fallback in prod).
@@ -58,6 +58,7 @@ Single-file Node HTTP server, no framework, in-memory session/rate-limit state (
 - `POST /webhook` — Telegram bot webhook; an admin reply in Telegram (matched by `Session: <id>` in the message) is relayed back into the chat session.
 - `GET/POST /comments/:slug` — file-backed comments in `content/comments/<slug>.json`, rate-limited and HTML-escaped.
 - `POST /lead` — fire-and-forget Telegram notification for any CTA/lead-capture form.
+- `POST /widget-message` — rate-limited Telegram notification for the chat widget and contact form (`api/lib/telegramRecipients.js`: `TELEGRAM_RECIPIENTS` JSON array, or the single `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` pair; optional `target` field narrows to one recipient by `id`, e.g. picking a specific partner).
 - `/admin/*` — Basic-Auth CMS API: CRUD on `content/posts/*.json` and `content/topics.json`, comment moderation, log viewing, and triggers for content generation (`/admin/generate-content`) and rebuild (`/admin/build`, which also reloads the PM2 `static-site`/`api-server` processes).
 
 ## Key Constraints
