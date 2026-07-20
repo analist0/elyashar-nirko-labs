@@ -463,7 +463,9 @@ export default function SalesAgent() {
       if (!AGENT_URL) throw new Error('Agent URL not configured')
 
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 20000)
+      // Must exceed the backend's own Ollama timeout (25s, api/server.js) or the
+      // client aborts and shows an error while the backend is still about to reply.
+      const timeout = setTimeout(() => controller.abort(), 30000)
 
       const res = await fetch(AGENT_URL, {
         method: 'POST',

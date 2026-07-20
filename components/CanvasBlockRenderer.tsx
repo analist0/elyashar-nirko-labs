@@ -7,6 +7,7 @@ import {
   Quote,
   Hash,
 } from 'lucide-react'
+import { sanitizeHtml } from '../src/lib/sanitizeHtml'
 
 /* -------------------------------------------------------------------------- */
 /*                                   TYPES                                    */
@@ -401,7 +402,7 @@ function HeadingBlock({
     >
       <span
         className={isH2 ? 'bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent' : theme.textHeading}
-        dangerouslySetInnerHTML={{ __html: block.content }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(block.content) }}
       />
       <span
         className={`inline-flex items-center mr-2 transition-all duration-300 ${
@@ -448,7 +449,7 @@ function ParagraphBlock({
     <p
       ref={ref}
       className={`prose-lg leading-relaxed mb-6 ${theme.text}`}
-      dangerouslySetInnerHTML={{ __html: block.content }}
+      dangerouslySetInnerHTML={{ __html: sanitizeHtml(block.content) }}
     />
   )
 }
@@ -459,12 +460,8 @@ function CodeBlock({ block, isDark }: { block: Block; isDark: boolean }) {
   const theme = useThemeClasses(isDark)
 
   const handleCopy = useCallback(async () => {
-    const tmp = document.createElement('div')
-    tmp.innerHTML = block.content
-    const code = tmp.querySelector('code')
-    const text = code ? code.innerText : tmp.innerText
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(block.content)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
@@ -507,7 +504,10 @@ function CodeBlock({ block, isDark }: { block: Block; isDark: boolean }) {
         className={`${theme.bgCode} rounded-xl border ${theme.border} overflow-x-auto p-6 pt-12`}
       >
         <pre className="text-sm leading-relaxed font-mono">
-          <code dangerouslySetInnerHTML={{ __html: block.content }} />
+          {/* Code content is rendered as plain text, never as HTML — a code
+              sample containing e.g. "<script>" must never execute, and JSX
+              text children are safe by construction (no sanitizer needed). */}
+          <code>{block.content}</code>
         </pre>
       </div>
     </div>
@@ -535,7 +535,7 @@ function ImageBlock({ block, isDark }: { block: Block; isDark: boolean }) {
       {caption && (
         <figcaption
           className={`mt-3 text-center text-sm ${theme.textMuted} italic`}
-          dangerouslySetInnerHTML={{ __html: caption }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(caption) }}
         />
       )}
     </figure>
@@ -552,7 +552,7 @@ function QuoteBlock({ block, isDark }: { block: Block; isDark: boolean }) {
       <Quote className="absolute top-3 right-3 w-6 h-6 text-purple-400/40" />
       <div
         className={`italic leading-relaxed ${theme.text}`}
-        dangerouslySetInnerHTML={{ __html: block.content }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(block.content) }}
       />
     </blockquote>
   )
@@ -583,7 +583,7 @@ function TableBlock({ block, isDark }: { block: Block; isDark: boolean }) {
       /<td\b/gi,
       `<td class="px-4 py-2 border ${theme.tableBorder} ${theme.text}"`
     )
-    return html
+    return sanitizeHtml(html)
   }, [block.content, theme])
 
   return (
@@ -614,10 +614,11 @@ function ListBlock({ block, isDark }: { block: Block; isDark: boolean }) {
   const styledHtml = useMemo(() => {
     const listClass = ordered ? 'list-decimal marker:text-cyan-500' : 'list-disc marker:text-cyan-500'
     const colorClass = isDark ? 'text-gray-300' : 'text-gray-700'
-    return block.content.replace(
+    const withClass = block.content.replace(
       /<(ul|ol)\b/i,
       `<$1 class="${listClass} space-y-2 pr-6 ${colorClass}"`
     )
+    return sanitizeHtml(withClass)
   }, [block.content, ordered, isDark])
 
   useEffect(() => {
@@ -851,7 +852,7 @@ export default function CanvasBlockRenderer({
         child = (
           <div
             className={isDark ? 'text-gray-300' : 'text-gray-700'}
-            dangerouslySetInnerHTML={{ __html: block.content }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(block.content) }}
           />
         )
     }

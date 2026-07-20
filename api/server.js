@@ -12,15 +12,23 @@ const path = require('path')
 const { URL } = require('url')
 const crypto = require('crypto')
 const { spawn } = require('child_process')
+const { resolveAdminCredentials } = require('./lib/adminAuth')
 
 const PORT = 3004
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || ''
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gpt-oss:120b'
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN || ''
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || ''
-const ADMIN_USER = process.env.ADMIN_USER || 'admin'
-const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123'
+const { user: ADMIN_USER, pass: ADMIN_PASS, usingDefaults: ADMIN_USING_DEFAULTS } =
+  resolveAdminCredentials()
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || ''
+
+if (ADMIN_USING_DEFAULTS) {
+  console.warn(
+    '⚠️  ADMIN_USER/ADMIN_PASS not set — using insecure defaults. ' +
+      'Set both in .env for any deployment reachable outside localhost.'
+  )
+}
 
 const PROJECT_ROOT = path.join(__dirname, '..')
 const LOGS_DIR = path.join(PROJECT_ROOT, 'logs')

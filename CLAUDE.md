@@ -10,9 +10,10 @@ npm run build      # Runs scripts/generate-seo.ts, then `next build` → static 
 npm run start       # Serve the production build (after build)
 npm run generate    # Run the content pipeline once: npx tsx scripts/generate-content.ts
 npm run pipeline     # bash scripts/run-daily-blog.sh (wraps `generate`, used by cron/PM2)
+npm test              # vitest run — unit tests for src/lib/** and api/lib/**
 ```
 
-No test suite exists. Validate changes with `npm run build` and manual browser testing. The API backend (`api/server.js`) has no build step — just restart it (`node api/server.js` or `pm2 restart api-server`) to pick up changes.
+Test coverage is intentionally narrow (pure-logic helpers only, e.g. `src/lib/sanitizeHtml.ts` and `api/lib/adminAuth.js`) — there's no component/integration test setup. Validate broader changes with `npm run build` and manual browser testing. The API backend (`api/server.js`) has no build step — just restart it (`node api/server.js` or `pm2 restart api-server`) to pick up changes.
 
 ## Architecture
 
@@ -29,8 +30,8 @@ This repo is **two runtime pieces deployed independently**, not a single app:
 - Theme (dark/light) flows through `src/context/ThemeContext.tsx`; dark is the default to avoid flash-of-wrong-theme.
 - `components/SalesAgent.tsx` and `components/TelegramChatWidget.tsx` are the chat widgets — they call the API backend (`NEXT_PUBLIC_AGENT_URL`, default `.../chat`) directly from the client, session-scoped via `sessionId` in localStorage.
 - `components/CommentsSection.tsx` reads/writes via the API backend's `/comments/:slug` endpoints (file-backed, not build-time).
-- `components/CanvasBlockEditor.tsx` / `CanvasBlockRenderer.tsx` render/edit the rich "block" content format used by generated blog posts (mixed HTML sections + per-section images), used by both the blog detail page and the admin CMS editor.
-- `src/app/admin/page.tsx` is a client-side CMS UI (posts, topics, comments, logs, pipeline trigger, settings) that talks to `api/server.js`'s `/admin/*` routes, which are Basic-Auth protected (`ADMIN_USER`/`ADMIN_PASS`).
+- `components/CanvasBlockEditor.tsx` / `CanvasBlockRenderer.tsx` render/edit the rich "block" content format used by generated blog posts (mixed HTML sections + per-section images), used by both the blog detail page and the admin CMS editor. Post HTML is LLM-generated and admin-editable, so `CanvasBlockRenderer` runs every block through `src/lib/sanitizeHtml.ts` (DOMPurify, tag/attribute allowlist) before any `dangerouslySetInnerHTML` — code blocks are rendered as plain text instead, never as HTML. Extend the allowlist there (not ad hoc per call site) if a new block type needs a new tag/attribute.
+- `src/app/admin/page.tsx` is a client-side CMS UI (posts, topics, comments, logs, pipeline trigger, settings) that talks to `api/server.js`'s `/admin/*` routes, which are Basic-Auth protected (`ADMIN_USER`/`ADMIN_PASS`, resolved by `api/lib/adminAuth.js` — **the server refuses to start** with `NODE_ENV=production` unless both are set; no insecure fallback in prod).
 
 ### Blog system
 
