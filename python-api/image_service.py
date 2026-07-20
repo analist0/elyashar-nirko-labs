@@ -31,12 +31,14 @@ app.add_middleware(
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configuration from environment
-OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "92da2aca5f5c44509b40a428ce9bba14")
+# Configuration from environment. No hardcoded fallback secrets here on
+# purpose — this is a shared/legacy script and a hardcoded default is a
+# credential committed to source control, not a "placeholder".
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "https://api.ollama.ai/v1")
 IMAGES_DIR = Path(__file__).parent.parent / "public" / "images" / "generated"
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "7908824633:AAHryoTh2q0ieiavwyYU44oNMiwMAtF-A9o")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "6457374757")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # Ensure images directory exists
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
@@ -278,7 +280,7 @@ async def health():
         "service": "image-generation-api",
         "timestamp": datetime.now().isoformat(),
         "images_dir_exists": IMAGES_DIR.exists(),
-        "api_key_configured": OLLAMA_API_KEY != "your-ollama-api-key",
+        "api_key_configured": OLLAMA_API_KEY != "",
         "telegram_configured": TELEGRAM_BOT_TOKEN != "" and TELEGRAM_CHAT_ID != ""
     }
 
